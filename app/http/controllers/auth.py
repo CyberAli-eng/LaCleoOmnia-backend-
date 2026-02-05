@@ -106,6 +106,13 @@ async def register(user_data: RegisterRequest, db: Session = Depends(get_db)):
         token=access_token
     )
 
+
+@router.post("/signup", response_model=LoginResponse)
+async def signup(user_data: RegisterRequest, db: Session = Depends(get_db)):
+    """Sign up a new user (alias for /register)."""
+    return await register(user_data, db)
+
+
 @router.get("/me", response_model=UserResponse)
 async def get_me(current_user: User = Depends(get_current_user)):
     """Get current user"""
