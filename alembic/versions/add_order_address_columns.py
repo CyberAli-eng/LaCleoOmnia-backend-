@@ -1,7 +1,7 @@
 """add order shipping_address and billing_address
 
 Revision ID: add_order_address
-Revises:
+Revises: initial_schema
 Create Date: 2025-01-24
 
 """

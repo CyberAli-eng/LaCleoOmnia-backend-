@@ -22,12 +22,21 @@ def upgrade() -> None:
         # Run in a separate autocommit connection so we don't abort the migration transaction.
         engine = conn.engine
         with engine.connect().execution_options(isolation_level="AUTOCOMMIT") as autocommit_conn:
-            for val in ("RTO_INITIATED", "RTO_DONE", "IN_TRANSIT", "LOST"):
-                try:
-                    autocommit_conn.execute(sa.text(f"ALTER TYPE shipmentstatus ADD VALUE '{val}'"))
-                except Exception as e:
-                    if "already exists" not in str(e).lower() and "duplicate" not in str(e).lower():
-                        raise
+            # Only extend enum if type "shipmentstatus" exists (old DBs created before initial_schema).
+            # After initial_schema, the enum is created with all values; type name may differ (e.g. casing).
+            has_type = autocommit_conn.execute(
+                sa.text("SELECT 1 FROM pg_catalog.pg_type WHERE typname = 'shipmentstatus'")
+            ).scalar() is not None
+            if has_type:
+                for val in ("RTO_INITIATED", "RTO_DONE", "IN_TRANSIT", "LOST"):
+                    try:
+                        autocommit_conn.execute(sa.text(f"ALTER TYPE shipmentstatus ADD VALUE '{val}'"))
+                    except Exception as e:
+                        err = str(e).lower()
+                        if "already exists" in err or "duplicate" in err or "does not exist" in err or "undefined" in err:
+                            pass  # skip this value
+                        else:
+                            raise
         # Add columns to shipments
         op.execute("ALTER TABLE shipments ADD COLUMN IF NOT EXISTS forward_cost NUMERIC(12, 2) DEFAULT 0 NOT NULL")
         op.execute("ALTER TABLE shipments ADD COLUMN IF NOT EXISTS reverse_cost NUMERIC(12, 2) DEFAULT 0 NOT NULL")
