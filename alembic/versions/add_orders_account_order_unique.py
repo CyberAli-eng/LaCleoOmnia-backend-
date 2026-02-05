@@ -9,6 +9,7 @@ Create Date: 2025-01-24
 
 """
 from alembic import op
+import sqlalchemy as sa
 
 
 revision = "add_orders_account_unique"
@@ -21,10 +22,17 @@ def upgrade() -> None:
     conn = op.get_bind()
     if conn.dialect.name == "postgresql":
         op.execute("ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_channel_order_unique")
-        op.execute(
-            "ALTER TABLE orders ADD CONSTRAINT orders_channel_account_order_unique "
-            "UNIQUE (channel_id, channel_account_id, channel_order_id)"
-        )
+        # Idempotent: only add if missing (e.g. already created by initial_schema or previous run).
+        exists = conn.execute(
+            sa.text(
+                "SELECT 1 FROM pg_constraint WHERE conname = 'orders_channel_account_order_unique'"
+            )
+        ).scalar() is not None
+        if not exists:
+            op.execute(
+                "ALTER TABLE orders ADD CONSTRAINT orders_channel_account_order_unique "
+                "UNIQUE (channel_id, channel_account_id, channel_order_id)"
+            )
     else:
         op.drop_constraint("orders_channel_order_unique", "orders", type_="unique")
         op.create_unique_constraint(
