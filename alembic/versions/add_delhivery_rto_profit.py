@@ -18,13 +18,16 @@ depends_on = None
 def upgrade() -> None:
     conn = op.get_bind()
     if conn.dialect.name == "postgresql":
-        # Extend shipmentstatus enum (SQLAlchemy creates lowercase type name)
-        for val in ("RTO_INITIATED", "RTO_DONE", "IN_TRANSIT", "LOST"):
-            try:
-                op.execute(sa.text(f"ALTER TYPE shipmentstatus ADD VALUE '{val}'"))
-            except Exception as e:
-                if "already exists" not in str(e).lower():
-                    raise
+        # ALTER TYPE ... ADD VALUE cannot run inside a transaction (PG commits implicitly).
+        # Run in a separate autocommit connection so we don't abort the migration transaction.
+        engine = conn.engine
+        with engine.connect().execution_options(isolation_level="AUTOCOMMIT") as autocommit_conn:
+            for val in ("RTO_INITIATED", "RTO_DONE", "IN_TRANSIT", "LOST"):
+                try:
+                    autocommit_conn.execute(sa.text(f"ALTER TYPE shipmentstatus ADD VALUE '{val}'"))
+                except Exception as e:
+                    if "already exists" not in str(e).lower() and "duplicate" not in str(e).lower():
+                        raise
         # Add columns to shipments
         op.execute("ALTER TABLE shipments ADD COLUMN IF NOT EXISTS forward_cost NUMERIC(12, 2) DEFAULT 0 NOT NULL")
         op.execute("ALTER TABLE shipments ADD COLUMN IF NOT EXISTS reverse_cost NUMERIC(12, 2) DEFAULT 0 NOT NULL")
