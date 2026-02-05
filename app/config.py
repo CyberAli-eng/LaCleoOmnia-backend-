@@ -27,8 +27,9 @@ class Settings:
     HOST = os.getenv("HOST", "0.0.0.0" if IS_CLOUD else "127.0.0.1")
     PORT = int(os.getenv("PORT", 8000))
     
-    # Database
-    DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://admin:password@localhost:5432/lacleo_omnia?schema=public")
+    # Database (Render/Heroku use postgres://; SQLAlchemy requires postgresql://)
+    _db_url = os.getenv("DATABASE_URL", "postgresql://admin:password@localhost:5432/lacleo_omnia?schema=public")
+    DATABASE_URL = _db_url.replace("postgres://", "postgresql://", 1) if _db_url.startswith("postgres://") else _db_url
     
     # Authentication
     JWT_SECRET = os.getenv("JWT_SECRET", "supersecret_fallback_key_change_in_production")

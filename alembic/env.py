@@ -16,10 +16,12 @@ load_dotenv()
 # this is the Alembic Config object
 config = context.config
 
-# ✅ Always load DB URL from environment
+# ✅ Always load DB URL from environment (Render/Heroku use postgres://; SQLAlchemy needs postgresql://)
 database_url = os.getenv("DATABASE_URL")
 if not database_url:
     raise RuntimeError("DATABASE_URL is not set")
+if database_url.startswith("postgres://"):
+    database_url = database_url.replace("postgres://", "postgresql://", 1)
 
 # ✅ Set Alembic sqlalchemy.url dynamically
 config.set_main_option("sqlalchemy.url", database_url)
