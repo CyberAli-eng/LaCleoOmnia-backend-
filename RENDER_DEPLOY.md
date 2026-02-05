@@ -49,9 +49,9 @@ Step-by-step guide to deploy this FastAPI backend on [Render](https://render.com
      ```
    - **Start Command:**
      ```bash
-     alembic upgrade head && python -m uvicorn main:app --host 0.0.0.0 --port $PORT
+     python create_tables.py && alembic upgrade head && python -m uvicorn main:app --host 0.0.0.0 --port $PORT
      ```
-     This runs migrations on every deploy then starts the app. On free tier there is no separate “Release Command”, so this is the recommended approach.
+     `create_tables.py` creates base tables (orders, users, etc.) from the current models so the first Alembic migration (which only adds columns) does not fail on a fresh DB. Then migrations run, then the app starts.
 4. **Instance type:** **Free**.
 
 ---

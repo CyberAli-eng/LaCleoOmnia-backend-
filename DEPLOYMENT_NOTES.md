@@ -34,15 +34,16 @@ Set these in your Render dashboard:
 pip install -r requirements.txt
 ```
 
-## Start Command (runs migrations then starts – works on free tier)
+## Start Command (creates tables, runs migrations, then starts – works on free tier)
 
-Use this so the DB is migrated automatically on every deploy, **without** needing Pre-Deploy or Release Command (which are paid on Render free tier):
+Use this so the DB is set up and migrated automatically on every deploy, **without** needing Pre-Deploy or Release Command (which are paid on Render free tier):
 
 ```bash
-alembic upgrade head && python -m uvicorn main:app --host 0.0.0.0 --port $PORT
+python create_tables.py && alembic upgrade head && python -m uvicorn main:app --host 0.0.0.0 --port $PORT
 ```
 
-- **First:** `alembic upgrade head` updates the database (adds missing columns like `orders.shipping_address`, `orders.billing_address`). Safe to run every time (idempotent).
+- **First:** `python create_tables.py` creates base tables (orders, users, channels, etc.) from the current SQLAlchemy models. Required on a **fresh** database because the Alembic chain has no “initial” migration—the root migration only runs `ALTER TABLE orders ADD COLUMN ...`, so it would fail with “relation 'orders' does not exist” on an empty DB.
+- **Then:** `alembic upgrade head` adds any missing columns and runs later migrations. Safe to run every time (idempotent).
 - **Then:** the app starts as usual.
 
 **Render Dashboard:** Build & Deploy → **Start Command** → paste the line above → Save.
