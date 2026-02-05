@@ -9,7 +9,7 @@ from alembic import op
 
 
 revision = "add_order_address"
-down_revision = None
+down_revision = "initial_schema"
 branch_labels = None
 depends_on = None
 
