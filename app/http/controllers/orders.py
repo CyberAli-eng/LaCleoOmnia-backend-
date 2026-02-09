@@ -17,9 +17,12 @@ router = APIRouter()
 
 @router.get("", response_model=dict)
 async def list_orders(
-    status_filter: Optional[str] = Query(None, alias="status"),
-    channel: Optional[str] = Query(None),
-    q: Optional[str] = Query(None),
+    status_filter: from typing import Optional
+Optional[str] = Query(None, alias="status"),
+    channel: from typing import Optional
+Optional[str] = Query(None),
+    q: from typing import Optional
+Optional[str] = Query(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):

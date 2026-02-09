@@ -75,7 +75,8 @@ class Settings:
         return unique_origins
     
     @property
-    def CORS_ORIGIN_REGEX(self) -> Optional[str]:
+    def CORS_ORIGIN_REGEX(self) -> from typing import Optional
+Optional[str]:
         """Get CORS origin regex pattern - optional, only if CORS_ORIGIN_REGEX env var is set"""
         # Only use regex if explicitly provided via environment variable
         # This allows flexibility for platforms that need regex patterns (e.g., preview deployments)

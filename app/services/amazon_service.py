@@ -62,7 +62,8 @@ async def get_orders(
     created_after_str = created_after.strftime("%Y-%m-%dT%H:%M:%SZ")
 
     all_orders: list[dict[str, Any]] = []
-    next_token: str | None = None
+    next_token: from typing import Optional
+Optional[str] = None
     page = 0
 
     async with httpx.AsyncClient(timeout=timeout) as client:

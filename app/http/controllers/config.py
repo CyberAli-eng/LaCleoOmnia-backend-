@@ -4,7 +4,7 @@ Configuration and integration management routes
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.models import ChannelAccount, ChannelType, ChannelAccountStatus, User
+from app.models import ChannelAccount, ChannelType, ChannelAccountStatus, User, WebhookSubscription
 from app.auth import get_current_user
 from app.http.requests import ShopifyConnectRequest
 from app.services.shopify import ShopifyService
@@ -21,8 +21,10 @@ class ConfigRequest(BaseModel):
     credentials: Dict[str, Any]
 
 class ConfigUpdateRequest(BaseModel):
-    inventorySyncEnabled: Optional[bool] = None
-    inventorySyncIntervalMinutes: Optional[int] = None
+    inventorySyncEnabled: from typing import Optional
+Optional[bool] = None
+    inventorySyncIntervalMinutes: from typing import Optional
+Optional[int] = None
 
 @router.get("/status")
 async def get_config_status(
@@ -52,12 +54,28 @@ async def get_config_status(
             # Skip integrations with decryption errors
             continue
     
-    # TODO: Add webhook subscriptions when webhook model is added
-    subscriptions = []
+    # Get webhook subscriptions for the current user
+    subscriptions = db.query(WebhookSubscription).filter(
+        WebhookSubscription.user_id == current_user.id
+    ).all()
+    
+    subscription_data = []
+    for sub in subscriptions:
+        subscription_data.append({
+            "id": sub.id,
+            "source": sub.source,
+            "shopDomain": sub.shop_domain,
+            "topic": sub.topic,
+            "webhookId": sub.webhook_id,
+            "endpointUrl": sub.endpoint_url,
+            "isActive": sub.is_active,
+            "lastDeliveryAt": sub.last_delivery_at.isoformat() if sub.last_delivery_at else None,
+            "createdAt": sub.created_at.isoformat() if sub.created_at else None,
+        })
     
     return {
         "integrations": integrations,
-        "subscriptions": subscriptions
+        "subscriptions": subscription_data
     }
 
 @router.post("")

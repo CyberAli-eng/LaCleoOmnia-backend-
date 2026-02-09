@@ -5,7 +5,7 @@ Partner-specific credentials and endpoints may apply.
 """
 import logging
 from datetime import datetime, timezone, timedelta
-from typing import Any
+from typing import Any, Optional
 
 import httpx
 

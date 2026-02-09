@@ -46,7 +46,8 @@ for _k, _v in list(SELLOSHIP_TO_INTERNAL.items()):
         SELLOSHIP_TO_INTERNAL[_upper] = _v
 
 
-def map_selloship_status(raw_status: Optional[str]) -> ShipmentStatus:
+def map_selloship_status(raw_status: from typing import Optional
+Optional[str]) -> ShipmentStatus:
     """Map shipper currentStatus to internal ShipmentStatus. Never use raw strings in DB."""
     if not raw_status or not isinstance(raw_status, str):
         return ShipmentStatus.CREATED
@@ -63,7 +64,8 @@ def build_waybill_payload_from_order(
     order: Any,
     items: list[Any],
     *,
-    pickup_address: Optional[dict] = None,
+    pickup_address: from typing import Optional
+Optional[dict] = None,
     channel_code: str = "OMS",
     channel_name: str = "LaCleoOmnia",
 ) -> dict:
@@ -160,8 +162,10 @@ def build_waybill_payload_from_order(
 async def fetch_selloship_token(
     username: str,
     password: str,
-    auth_url: Optional[str] = None,
-) -> Optional[str]:
+    auth_url: from typing import Optional
+Optional[str] = None,
+) -> from typing import Optional
+Optional[str]:
     """
     Call Selloship auth API (e.g. selloship.com/api/lock_actvs/channels/authToken).
     Returns the token string on SUCCESS, None otherwise. Used to validate credentials on connect.
@@ -187,10 +191,14 @@ async def fetch_selloship_token(
 
 
 def get_selloship_client(
-    api_key: Optional[str] = None,
-    username: Optional[str] = None,
-    password: Optional[str] = None,
-    auth_url: Optional[str] = None,
+    api_key: from typing import Optional
+Optional[str] = None,
+    username: from typing import Optional
+Optional[str] = None,
+    password: from typing import Optional
+Optional[str] = None,
+    auth_url: from typing import Optional
+Optional[str] = None,
 ) -> "SelloshipService":
     """
     Return a Selloship client. Uses Base.com Shipper Integration flow.
@@ -213,16 +221,20 @@ class SelloshipService:
     """
 
     # Token cache: (token_string, expires_at)
-    _token_cache: Optional[tuple[str, float]] = None
+    _token_cache: from typing import Optional
+Optional[tuple[str, float]] = None
     TOKEN_CACHE_TTL_SEC = 3000  # ~50 min
 
     def __init__(
         self,
         api_key: str = "",
         base_url: str = "https://api.selloship.com",
-        username: Optional[str] = None,
-        password: Optional[str] = None,
-        auth_url: Optional[str] = None,
+        username: from typing import Optional
+Optional[str] = None,
+        password: from typing import Optional
+Optional[str] = None,
+        auth_url: from typing import Optional
+Optional[str] = None,
     ):
         self.api_key = (api_key or "").strip()
         self.base_url = base_url.rstrip("/")
@@ -233,7 +245,8 @@ class SelloshipService:
     def _has_token_auth(self) -> bool:
         return bool(self.username and self.password)
 
-    async def _get_auth_token(self) -> Optional[str]:
+    async def _get_auth_token(self) -> from typing import Optional
+Optional[str]:
         """POST to auth URL (or base_url/authToken) with username/password. Returns token or None."""
         if not self._has_token_auth():
             return None
@@ -437,7 +450,8 @@ class SelloshipService:
             }
         return results[0]
 
-    async def get_shipping_cost(self, awb: str) -> Optional[dict]:
+    async def get_shipping_cost(self, awb: str) -> from typing import Optional
+Optional[dict]:
         """
         Fetch shipping cost for waybill if exposed in waybillDetails response.
         Returns { "forward_cost": Decimal, "reverse_cost": Decimal } or None.
@@ -459,7 +473,8 @@ class SelloshipService:
         except Exception:
             return None
 
-    async def get_costs(self, awb: str) -> Optional[dict]:
+    async def get_costs(self, awb: str) -> from typing import Optional
+Optional[dict]:
         """Alias for get_shipping_cost."""
         return await self.get_shipping_cost(awb)
 
@@ -562,7 +577,8 @@ class SelloshipService:
         }
 
 
-async def sync_selloship_shipments(db: Any, api_key: Optional[str] = None) -> dict:
+async def sync_selloship_shipments(db: Any, api_key: from typing import Optional
+Optional[str] = None) -> dict:
     """
     Sync all active Selloship shipments. Uses batch GET /waybillDetails (max 50 per call).
     Updates Shipment.status, Shipment.last_synced_at, ShipmentTracking; triggers profit recompute.

@@ -33,7 +33,9 @@ from app.services.profit_calculator import compute_profit_for_order
 logger = logging.getLogger(__name__)
 
 
-def verify_webhook_hmac(body: bytes, hmac_header: Optional[str], secret: Optional[str]) -> bool:
+def verify_webhook_hmac(body: bytes, hmac_header: from typing import Optional
+Optional[str], secret: from typing import Optional
+Optional[str]) -> bool:
     """
     Verify X-Shopify-Hmac-Sha256: HMAC-SHA256(raw_body, secret) base64 == header.
     """
@@ -52,7 +54,9 @@ def verify_webhook_hmac(body: bytes, hmac_header: Optional[str], secret: Optiona
         return False
 
 
-def _format_address(addr: Optional[dict]) -> Optional[str]:
+def _format_address(addr: from typing import Optional
+Optional[dict]) -> from typing import Optional
+Optional[str]:
     if not addr or not isinstance(addr, dict):
         return None
     parts = []
@@ -86,7 +90,8 @@ def _get_integration_and_account(db: Session, shop_domain: str):
     return integration, account
 
 
-def _upsert_order_from_payload(db: Session, shop_domain: str, payload: dict) -> Optional[str]:
+def _upsert_order_from_payload(db: Session, shop_domain: str, payload: dict) -> from typing import Optional
+Optional[str]:
     """
     Upsert order from Shopify webhook payload (full order object). Returns order.id or None.
     """
@@ -171,7 +176,8 @@ def process_shopify_webhook(
     shop_domain: str,
     topic: str,
     payload: dict,
-    event_id: Optional[str] = None,
+    event_id: from typing import Optional
+Optional[str] = None,
 ) -> None:
     """
     Dispatch by topic: upsert order, cancel order, recompute profit, or sync inventory.
@@ -221,9 +227,9 @@ def process_shopify_webhook(
                     persist_shopify_inventory(db, integration.shop_domain, inv_list or [])
                     logger.info("Webhook %s: synced inventory for %s", topic, shop_domain)
                 except Exception as e:
-                    logger.warning("Webhook inventory sync failed: %s", e)
+                    logger.error("Webhook inventory sync failed: %s", e)
         else:
-            logger.debug("Webhook topic %s: no handler", topic)
+            logger.info("Webhook topic %s: no handler", topic)
 
         if event_id:
             event = db.query(WebhookEvent).filter(WebhookEvent.id == event_id).first()

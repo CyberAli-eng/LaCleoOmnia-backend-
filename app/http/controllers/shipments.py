@@ -3,6 +3,7 @@ Shipment routes: list, get by id or order_id, create, sync, generate label (Sell
 """
 import logging
 from fastapi import APIRouter, Depends, HTTPException, status
+from typing import Optional
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -24,8 +25,10 @@ class ShipmentCreate(BaseModel):
     order_id: str
     awb_number: str
     courier_name: str = "delhivery"
-    tracking_url: str | None = None
-    label_url: str | None = None
+    tracking_url: from typing import Optional
+Optional[str] = None
+    label_url: from typing import Optional
+Optional[str] = None
     forward_cost: float = 0.0
     reverse_cost: float = 0.0
 

@@ -36,7 +36,8 @@ DELHIVERY_TO_INTERNAL = {
 }
 
 
-def map_delhivery_status(raw_status: Optional[str]) -> ShipmentStatus:
+def map_delhivery_status(raw_status: from typing import Optional
+Optional[str]) -> ShipmentStatus:
     """
     Map Delhivery API status to internal ShipmentStatus.
     Never use raw strings in DB; always normalize.
@@ -47,7 +48,8 @@ def map_delhivery_status(raw_status: Optional[str]) -> ShipmentStatus:
     return DELHIVERY_TO_INTERNAL.get(normalized, ShipmentStatus.IN_TRANSIT)
 
 
-def get_client(api_key: Optional[str] = None) -> "DelhiveryClient":
+def get_client(api_key: from typing import Optional
+Optional[str] = None) -> "DelhiveryClient":
     """Return a client instance. Api key from env if not passed."""
     key = api_key or getattr(settings, "DELHIVERY_API_KEY", None) or ""
     base = getattr(settings, "DELHIVERY_TRACKING_BASE_URL", "https://track.delhivery.com")
@@ -156,10 +158,14 @@ class DelhiveryClient:
         self,
         waybill: str,
         status: str,
-        payload: Optional[dict] = None,
-        db: Optional[Any] = None,
-        delivery_status: Optional[str] = None,
-        rto_status: Optional[str] = None,
+        payload: from typing import Optional
+Optional[dict] = None,
+        db: from typing import Optional
+Optional[Any] = None,
+        delivery_status: from typing import Optional
+Optional[str] = None,
+        rto_status: from typing import Optional
+Optional[str] = None,
     ) -> None:
         """
         Store shipment status. Persist to shipment_tracking when db is provided.
@@ -204,7 +210,8 @@ class DelhiveryClient:
                 db.rollback()
 
 
-async def sync_delhivery_shipments(db: Any, api_key: Optional[str] = None) -> dict:
+async def sync_delhivery_shipments(db: Any, api_key: from typing import Optional
+Optional[str] = None) -> dict:
     """
     Sync all active shipments (status not DELIVERED/RTO_DONE/LOST) from Delhivery.
     Uses api_key if provided, else global DELHIVERY_API_KEY.

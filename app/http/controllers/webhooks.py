@@ -138,8 +138,10 @@ async def get_webhook_events(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
     limit: int = Query(50, le=100),
-    source: Optional[str] = Query(None),
-    topic: Optional[str] = Query(None),
+    source: from typing import Optional
+Optional[str] = Query(None),
+    topic: from typing import Optional
+Optional[str] = Query(None),
 ):
     """Get persisted webhook events for the current user's connected shops only."""
     user_shops = _get_user_shop_domains(db, str(current_user.id))

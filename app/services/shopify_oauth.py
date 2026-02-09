@@ -8,6 +8,7 @@ import secrets
 import time
 from urllib.parse import urlencode, parse_qs, urlparse, quote_plus
 from app.config import settings
+from typing import Optional
 import logging
 
 logger = logging.getLogger(__name__)
@@ -15,7 +16,10 @@ logger = logging.getLogger(__name__)
 class ShopifyOAuthService:
     """Handle Shopify OAuth flow. Uses provided api_key/api_secret or falls back to settings (env)."""
     
-    def __init__(self, api_key: str | None = None, api_secret: str | None = None, scopes: str | None = None):
+    def __init__(self, api_key: from typing import Optional
+Optional[str] = None, api_secret: from typing import Optional
+Optional[str] = None, scopes: from typing import Optional
+Optional[str] = None):
         self.api_key = (api_key or "").strip() or getattr(settings, "SHOPIFY_API_KEY", "") or ""
         self.api_secret = (api_secret or "").strip() or getattr(settings, "SHOPIFY_API_SECRET", "") or ""
         self.scopes = (scopes or "").strip() or getattr(settings, "SHOPIFY_SCOPES", "") or ""

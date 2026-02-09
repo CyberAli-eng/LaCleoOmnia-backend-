@@ -16,7 +16,8 @@ router = APIRouter()
 
 @router.post("/recompute")
 async def recompute_profit(
-    order_id: str | None = Query(None, description="Recompute one order; omit to recompute all for user"),
+    order_id: from typing import Optional
+Optional[str] = Query(None, description="Recompute one order; omit to recompute all for user"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):

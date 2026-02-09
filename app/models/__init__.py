@@ -456,3 +456,23 @@ class WebhookEvent(Base):
     processed_at = Column("processed_at", DateTime, nullable=True)
     error = Column("error", String, nullable=True)
     created_at = Column("created_at", DateTime, server_default=func.now())
+
+
+class WebhookSubscription(Base):
+    __tablename__ = "webhook_subscriptions"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column("user_id", String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    source = Column("source", String, nullable=False, index=True)  # shopify, delhivery, etc.
+    shop_domain = Column("shop_domain", String, nullable=True, index=True)
+    topic = Column("topic", String, nullable=False, index=True)  # orders/create, inventory/update, etc.
+    webhook_id = Column("webhook_id", String, nullable=True)  # External webhook ID
+    endpoint_url = Column("endpoint_url", String, nullable=False)
+    secret = Column("secret", String, nullable=True)  # HMAC secret
+    is_active = Column("is_active", Boolean, default=True, nullable=False)
+    last_delivery_at = Column("last_delivery_at", DateTime, nullable=True)
+    created_at = Column("created_at", DateTime, server_default=func.now())
+    updated_at = Column("updated_at", DateTime, server_default=func.now(), onupdate=func.now())
+
+    __table_args__ = (UniqueConstraint("user_id", "source", "shop_domain", "topic", name="uq_webhook_subscription_user_source_shop_topic"),)
+    user = relationship("User")

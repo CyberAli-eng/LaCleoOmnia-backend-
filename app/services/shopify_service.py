@@ -13,7 +13,9 @@ SHOPIFY_API_VERSION = "2024-01"
 logger = logging.getLogger(__name__)
 
 
-def _parse_link_next(link_header: Optional[str]) -> Optional[str]:
+def _parse_link_next(link_header: from typing import Optional
+Optional[str]) -> from typing import Optional
+Optional[str]:
     """Parse Link header; return URL for rel=next if present. Shopify uses cursor pagination."""
     if not link_header:
         return None

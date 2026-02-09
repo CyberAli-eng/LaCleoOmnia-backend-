@@ -75,11 +75,11 @@ def _get_integration_catalog() -> dict:
                             {"key": "apiKey", "label": "API Key (Client ID)", "type": "text", "placeholder": "From Shopify Partner app"},
                             {"key": "apiSecret", "label": "API Secret (Client secret)", "type": "password", "placeholder": "From Shopify Partner app"}
                         ],
-                        "setupGuide": "1) Create app in Shopify → Configuration. 2) App URL: https://la-cleo-omnia-web.vercel.app/auth/shopify 3) Allowed redirection URL: https://lacleoomnia.onrender.com/auth/shopify/callback 4) Copy Client ID & secret → paste in this card → Save. 5) Connect via OAuth or Install from Shopify.",
+                        "setupGuide": "1) Create app in Shopify → Configuration. 2) App URL: https://la-cleo-omnia-frontend.vercel.app/auth/shopify 3) Allowed redirection URL: https://lacleoomnia-api.onrender.com/auth/shopify/callback 4) Copy Client ID & secret → paste in this card → Save. 5) Connect via OAuth or Install from Shopify.",
                         "setupSteps": [
                             {"step": 1, "title": "Create app", "description": "Shopify Admin → Settings → Apps → Develop apps → Create an app. Name it (e.g. LaCleoOmnia)."},
-                            {"step": 2, "title": "App URL", "description": "App → Configuration. App URL = https://la-cleo-omnia-web.vercel.app/auth/shopify (no trailing slash)."},
-                            {"step": 3, "title": "Redirect URL", "description": "Same page. Allowed redirection URL(s) = https://lacleoomnia.onrender.com/auth/shopify/callback (no trailing slash)."},
+                            {"step": 2, "title": "App URL", "description": "App → Configuration. App URL = https://la-cleo-omnia-frontend.vercel.app/auth/shopify (no trailing slash)."},
+                            {"step": 3, "title": "Redirect URL", "description": "Same page. Allowed redirection URL(s) = https://lacleoomnia-api.onrender.com/auth/shopify/callback (no trailing slash)."},
                             {"step": 4, "title": "Paste credentials here", "description": "Shopify → Client credentials. Copy Client ID & secret. Here: pencil or Edit app credentials → paste → Save."},
                             {"step": 5, "title": "Connect", "description": "Click Connect via OAuth, enter store (e.g. mystore.myshopify.com), then approve in Shopify."},
                         ],
@@ -679,6 +679,33 @@ async def trigger_ad_spend_sync(
     }
 
 
+@router.post("/providers/shopify/sync")
+async def sync_shopify_orders_via_engine(
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Start Shopify order sync for the current user's connected Shopify account using the shared SyncEngine.
+
+    This mirrors the pattern used for Amazon/Flipkart/Myntra so all commerce channels have a consistent
+    manual sync entrypoint under /providers/{id}/sync.
+    """
+    account = _get_user_shopify_account(db, str(current_user.id))
+    if not account:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Shopify not connected. Connect Shopify in Integrations first.",
+        )
+    sync_engine = SyncEngine(db)
+
+    async def run():
+        await sync_engine.sync_orders(account)
+
+    background_tasks.add_task(run)
+    return {"message": "Order sync started", "accountId": account.id}
+
+
 def _get_user_shopify_account(db: Session, user_id: str):
     """Get current user's first Shopify ChannelAccount. Returns None if not connected."""
     channel = db.query(Channel).filter(Channel.name == ChannelType.SHOPIFY).first()
@@ -1117,7 +1144,8 @@ async def shopify_sync(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="Failed to fetch orders from Shopify.",
         )
-    def _format_address(addr: dict | None) -> str | None:
+    def _format_address(addr: dict | None) -> from typing import Optional
+Optional[str]:
         if not addr or not isinstance(addr, dict):
             return None
         parts = []

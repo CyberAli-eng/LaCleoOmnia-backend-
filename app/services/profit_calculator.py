@@ -56,7 +56,8 @@ def compute_profit_for_order(db: Session, order_id: str) -> OrderProfit | None:
     payment_fee = Decimal("0")
     status = "computed"
     missing_skus: list[str] = []
-    courier_status: str | None = None
+    courier_status: from typing import Optional
+Optional[str] = None
     final_status: str = "PENDING"
     rto_loss = Decimal("0")
     lost_loss = Decimal("0")
@@ -78,7 +79,7 @@ def compute_profit_for_order(db: Session, order_id: str) -> OrderProfit | None:
 
     if missing_skus:
         status = "partial" if product_cost > 0 else "missing_costs"
-        logger.debug("Order %s profit: missing sku_costs for %s", order_id, missing_skus[:5])
+        logger.info("Order %s profit: missing sku_costs for %s", order_id, missing_skus[:5])
 
     # Shipment: forward/reverse cost and courier status
     shipment = db.query(Shipment).filter(Shipment.order_id == order_id).first()

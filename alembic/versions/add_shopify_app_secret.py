@@ -17,13 +17,16 @@ depends_on = None
 
 def upgrade() -> None:
     conn = op.get_bind()
-    if conn.dialect.name == "postgresql":
-        op.execute("ALTER TABLE shopify_integrations ADD COLUMN IF NOT EXISTS app_secret_encrypted VARCHAR")
-    else:
-        try:
-            op.add_column("shopify_integrations", sa.Column("app_secret_encrypted", sa.String(), nullable=True))
-        except Exception:
-            pass  # column may exist
+    # Check if table exists first
+    inspector = sa.inspect(conn)
+    if "shopify_integrations" in inspector.get_table_names():
+        if conn.dialect.name == "postgresql":
+            op.execute("ALTER TABLE shopify_integrations ADD COLUMN IF NOT EXISTS app_secret_encrypted VARCHAR")
+        else:
+            try:
+                op.add_column("shopify_integrations", sa.Column("app_secret_encrypted", sa.String(), nullable=True))
+            except Exception:
+                pass  # column may exist
 
 
 def downgrade() -> None:

@@ -249,7 +249,8 @@ def _persist_one_common_order(
     warehouse: Warehouse,
     common: dict,
     sync_job: SyncJob,
-) -> tuple[bool, str | None]:
+) -> tuple[bool, from typing import Optional
+Optional[str]]:
     """Create Order + OrderItems from a common-order dict. Returns (imported, None) or (False, 'skipped'/'error')."""
     channel_order_id = str(common.get("channel_order_id") or common.get("id") or "")
     if not channel_order_id:

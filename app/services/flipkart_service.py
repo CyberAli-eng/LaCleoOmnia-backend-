@@ -56,7 +56,8 @@ async def get_orders(
     to_str = to_date.strftime("%Y-%m-%dT%H:%M:%S")
 
     all_items: list[dict[str, Any]] = []
-    next_page_url: str | None = None
+    next_page_url: from typing import Optional
+Optional[str] = None
     page = 0
 
     async with httpx.AsyncClient(timeout=timeout) as client:

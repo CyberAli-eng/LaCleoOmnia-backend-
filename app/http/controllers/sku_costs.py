@@ -39,8 +39,10 @@ class SkuCostResponse(BaseModel):
     packaging_cost: float
     box_cost: float
     inbound_cost: float
-    created_at: str | None
-    updated_at: str | None
+    created_at: from typing import Optional
+Optional[str]
+    updated_at: from typing import Optional
+Optional[str]
 
     class Config:
         from_attributes = True
@@ -61,7 +63,8 @@ def _to_response(row: SkuCost) -> dict:
 
 @router.get("", response_model=list)
 async def list_sku_costs(
-    q: str | None = Query(None, description="Filter by SKU (substring)"),
+    q: from typing import Optional
+Optional[str] = Query(None, description="Filter by SKU (substring)"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):

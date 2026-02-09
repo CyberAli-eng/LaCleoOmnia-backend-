@@ -240,7 +240,7 @@ async def _ad_spend_sync_loop() -> None:
             db = SessionLocal()
             user_id = get_first_user_id_for_sync(db)
             if not user_id:
-                logger.debug("Ad spend sync: no meta_ads/google_ads credentials; skip")
+                logger.info("Ad spend sync: no meta_ads/google_ads credentials; skip")
             else:
                 now_ist = datetime.now(IST)
                 yesterday = (now_ist - timedelta(days=1)).date()
@@ -380,7 +380,7 @@ async def auth_shopify_callback(
                             api_key = (data.get("apiKey") or "").strip()
                             api_secret = (data.get("apiSecret") or "").strip()
             except (JWTError, Exception) as e:
-                logger.debug("State decode or cred load: %s", e)
+                logger.warning("State decode or cred load: %s", e)
 
         if not api_key or not api_secret:
             if user_id:

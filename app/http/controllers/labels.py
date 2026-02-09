@@ -12,8 +12,10 @@ from typing import Optional, List
 router = APIRouter()
 
 class GenerateLabelRequest(BaseModel):
-    orderId: Optional[int] = None
-    orderIds: Optional[List[int]] = None
+    orderId: from typing import Optional
+Optional[int] = None
+    orderIds: from typing import Optional
+Optional[List[int]] = None
 
 @router.get("")
 async def list_labels(

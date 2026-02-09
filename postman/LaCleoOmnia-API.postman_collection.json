@@ -1,0 +1,628 @@
+{
+  "info": {
+    "name": "LaCleoOmnia API",
+    "description": "Order & Inventory Management System – Auth, Orders, Inventory, Integrations (Shopify, Delhivery, Selloship), Shipments, Analytics, Profit, SKU Costs, Webhooks, Workers.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      { "key": "token", "value": "{{token}}", "type": "string" }
+    ]
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:8000" },
+    { "key": "token", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "GET Health check",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/health",
+            "description": "No auth. Returns status, service, environment."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "POST Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var json = pm.response.json();",
+                  "if (json.token) { pm.collectionVariables.set('token', json.token); }"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@local\",\n  \"password\": \"Admin@123\"\n}"
+            },
+            "url": "{{base_url}}/api/auth/login",
+            "description": "Returns token and user. Token is auto-saved to collection variable for other requests."
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": { "method": "POST", "header": [], "url": { "raw": "{{base_url}}/api/auth/login" }, "body": { "mode": "raw", "raw": "{\"email\":\"admin@local\",\"password\":\"Admin@123\"}" } },
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"token\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\",\n  \"user\": {\n    \"id\": \"user-001\",\n    \"name\": \"Admin\",\n    \"email\": \"admin@local\",\n    \"role\": \"ADMIN\"\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "POST Register",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Test User\",\n  \"email\": \"test@example.com\",\n  \"password\": \"Test@123\"\n}"
+            },
+            "url": "{{base_url}}/api/auth/register",
+            "description": "Creates user and returns token, user."
+          }
+        },
+        {
+          "name": "GET Get current user (me)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/auth/me",
+            "description": "Requires Authorization: Bearer {{token}}."
+          }
+        },
+        {
+          "name": "POST Logout",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{base_url}}/api/auth/logout"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Orders",
+      "item": [
+        {
+          "name": "GET List orders",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/orders?status=all",
+              "host": ["{{base_url}}"],
+              "path": ["api", "orders"],
+              "query": [
+                { "key": "status", "value": "all", "description": "all | NEW | CONFIRMED | PACKED | SHIPPED | etc." },
+                { "key": "channel", "value": "", "disabled": true },
+                { "key": "q", "value": "", "description": "Search order id, customer, email", "disabled": true }
+              ]
+            },
+            "response": [
+              {
+                "name": "Success Response",
+                "status": "OK",
+                "code": 200,
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": "{\n  \"orders\": [\n    {\n      \"id\": \"order-001\",\n      \"channelOrderId\": \"SHOP-1001\",\n      \"customerName\": \"Rahul Sharma\",\n      \"orderTotal\": 2499.00,\n      \"status\": \"CONFIRMED\",\n      \"createdAt\": \"2026-01-22T10:00:00Z\",\n      \"items\": []\n    }\n  ]\n}"
+              }
+            ]
+          }
+        },
+        {
+          "name": "GET Get order by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/orders/{{order_id}}",
+            "description": "Set order_id in collection/env or replace in URL."
+          }
+        },
+        {
+          "name": "POST Confirm order",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{base_url}}/api/orders/{{order_id}}/confirm"
+          }
+        },
+        {
+          "name": "POST Pack order",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{base_url}}/api/orders/{{order_id}}/pack"
+          }
+        },
+        {
+          "name": "POST Ship order",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"courier_name\": \"delhivery\",\n  \"awb_number\": \"AWB123456789\",\n  \"tracking_url\": \"\",\n  \"label_url\": \"\",\n  \"forward_cost\": 80,\n  \"reverse_cost\": 0\n}"
+            },
+            "url": "{{base_url}}/api/orders/{{order_id}}/ship"
+          }
+        },
+        {
+          "name": "POST Cancel order",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{base_url}}/api/orders/{{order_id}}/cancel"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Inventory",
+      "item": [
+        {
+          "name": "GET List inventory",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/inventory",
+              "host": ["{{base_url}}"],
+              "path": ["api", "inventory"],
+              "query": [
+                { "key": "warehouse_id", "value": "", "disabled": true },
+                { "key": "sku", "value": "", "disabled": true }
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST Adjust inventory",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sku\": \"SKU-001\",\n  \"warehouse_id\": \"wh-1\",\n  \"qty_delta\": 10,\n  \"reason\": \"Stock correction\"\n}"
+            },
+            "url": "{{base_url}}/api/inventory/adjust"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Integrations",
+      "item": [
+        {
+          "name": "GET Get catalog",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/integrations/catalog"
+          }
+        },
+        {
+          "name": "GET Get provider status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/integrations/providers/delhivery/status"
+          }
+        },
+        {
+          "name": "POST Connect provider",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"apiKey\": \"your-delhivery-api-key\"\n}"
+            },
+            "url": "{{base_url}}/api/integrations/providers/delhivery/connect"
+          }
+        },
+        {
+          "name": "GET Get Shopify app status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/integrations/providers/shopify_app/status"
+          }
+        },
+        {
+          "name": "POST Connect Shopify app",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"apiKey\": \"your-shopify-api-key\",\n  \"apiSecret\": \"your-shopify-api-secret\"\n}"
+            },
+            "url": "{{base_url}}/api/integrations/providers/shopify_app/connect"
+          }
+        },
+        {
+          "name": "GET Get Shopify status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/integrations/shopify/status"
+          }
+        },
+        {
+          "name": "GET Get Shopify orders",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/integrations/shopify/orders"
+          }
+        },
+        {
+          "name": "GET Get Shopify inventory",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/integrations/shopify/inventory",
+              "host": ["{{base_url}}"],
+              "path": ["api", "integrations", "shopify", "inventory"],
+              "query": [{ "key": "refresh", "value": "true", "description": "Force fetch from Shopify", "disabled": true }]
+            }
+          }
+        },
+        {
+          "name": "POST Sync Shopify",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{base_url}}/api/integrations/shopify/sync"
+          }
+        },
+        {
+          "name": "POST Register Shopify webhooks",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{base_url}}/api/integrations/shopify/register-webhooks"
+          }
+        },
+        {
+          "name": "POST Sync ad spend",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{base_url}}/api/integrations/ad-spend/sync"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Shipments",
+      "item": [
+        {
+          "name": "GET List shipments",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/shipments"
+          }
+        },
+        {
+          "name": "GET Get shipment by order ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/shipments/order/{{order_id}}"
+          }
+        },
+        {
+          "name": "POST Create shipment",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"order_id\": \"order-uuid-here\",\n  \"awb_number\": \"AWB123\",\n  \"courier_name\": \"delhivery\",\n  \"tracking_url\": \"\",\n  \"label_url\": \"\",\n  \"forward_cost\": 80,\n  \"reverse_cost\": 0\n}"
+            },
+            "url": "{{base_url}}/api/shipments"
+          }
+        },
+        {
+          "name": "POST Sync shipments",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{base_url}}/api/shipments/sync",
+            "description": "Sync Delhivery + Selloship status/costs."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Analytics",
+      "item": [
+        {
+          "name": "GET Get summary",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/analytics/summary"
+          }
+        },
+        {
+          "name": "GET Get profit summary",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/analytics/profit-summary"
+          }
+        }
+      ]
+    },
+    {
+      "name": "SKU Costs",
+      "item": [
+        {
+          "name": "GET List SKU costs",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/sku-costs"
+          }
+        },
+        {
+          "name": "GET Get SKU cost by SKU",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/sku-costs/SKU-001"
+          }
+        },
+        {
+          "name": "POST Create SKU cost",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sku\": \"SKU-001\",\n  \"product_cost\": 400,\n  \"packaging_cost\": 25,\n  \"box_cost\": 10,\n  \"inbound_cost\": 5\n}"
+            },
+            "url": "{{base_url}}/api/sku-costs"
+          }
+        },
+        {
+          "name": "PATCH Update SKU cost",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"product_cost\": 420,\n  \"packaging_cost\": 25,\n  \"box_cost\": 10,\n  \"inbound_cost\": 5\n}"
+            },
+            "url": "{{base_url}}/api/sku-costs/SKU-001"
+          }
+        },
+        {
+          "name": "DELETE Delete SKU cost",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{base_url}}/api/sku-costs/SKU-001"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Profit",
+      "item": [
+        {
+          "name": "POST Recompute profit",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/profit/recompute",
+              "host": ["{{base_url}}"],
+              "path": ["api", "profit", "recompute"],
+              "query": [{ "key": "order_id", "value": "", "description": "Optional; omit to recompute all", "disabled": true }]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Config",
+      "item": [
+        {
+          "name": "GET Get config status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/config/status"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Webhooks",
+      "item": [
+        {
+          "name": "GET List webhooks",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/webhooks"
+          }
+        },
+        {
+          "name": "GET List subscriptions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/webhooks/subscriptions"
+          }
+        },
+        {
+          "name": "GET List events",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/webhooks/events",
+              "host": ["{{base_url}}"],
+              "path": ["api", "webhooks", "events"],
+              "query": [{ "key": "source", "value": "shopify", "disabled": true }]
+            }
+          }
+        },
+        {
+          "name": "POST Retry webhook event",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{base_url}}/api/webhooks/events/{{event_id}}/retry"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Workers",
+      "item": [
+        {
+          "name": "GET List workers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/workers"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Sync",
+      "item": [
+        {
+          "name": "GET List sync jobs",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/sync/jobs"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "GET List users",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/users"
+          }
+        },
+        {
+          "name": "POST Create user",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"New User\",\n  \"email\": \"newuser@example.com\",\n  \"password\": \"SecurePass@1\",\n  \"role\": \"STAFF\"\n}"
+            },
+            "url": "{{base_url}}/api/users"
+          }
+        },
+        {
+          "name": "PATCH Update user",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Name\",\n  \"role\": \"ADMIN\"\n}"
+            },
+            "url": "{{base_url}}/api/users/{{user_id}}"
+          }
+        },
+        {
+          "name": "DELETE Delete user",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{base_url}}/api/users/{{user_id}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Audit",
+      "item": [
+        {
+          "name": "GET List audit log",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/audit",
+              "host": ["{{base_url}}"],
+              "path": ["api", "audit"],
+              "query": [
+                { "key": "entity_type", "value": "Order", "disabled": true },
+                { "key": "entity_id", "value": "", "disabled": true },
+                { "key": "limit", "value": "50", "disabled": true }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Labels",
+      "item": [
+        {
+          "name": "GET List labels",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/labels"
+          }
+        },
+        {
+          "name": "POST Generate label",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orderId\": \"order-uuid\",\n  \"carrier\": \"delhivery\",\n  \"trackingNumber\": \"AWB123\"\n}"
+            },
+            "url": "{{base_url}}/api/labels/generate"
+          }
+        }
+      ]
+    }
+  ]
+}
