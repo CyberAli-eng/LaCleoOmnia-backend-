@@ -74,7 +74,12 @@ def upgrade() -> None:
                existing_type=postgresql.JSONB(astext_type=sa.Text()),
                type_=sa.JSON(),
                existing_nullable=True)
-    op.drop_constraint('sku_costs_sku_key', 'sku_costs', type_='unique')
+    sku_unique_constraints = {c["name"] for c in inspector.get_unique_constraints("sku_costs")}
+    if "sku_costs_sku_key" in sku_unique_constraints:
+        if conn.dialect.name == "postgresql":
+            op.execute("ALTER TABLE sku_costs DROP CONSTRAINT IF EXISTS sku_costs_sku_key")
+        else:
+            op.drop_constraint('sku_costs_sku_key', 'sku_costs', type_='unique')
     op.drop_index('ix_sku_costs_sku', table_name='sku_costs')
     op.create_index(op.f('ix_sku_costs_sku'), 'sku_costs', ['sku'], unique=True)
     op.add_column('sync_jobs', sa.Column('records_processed', sa.Integer(), nullable=True))
