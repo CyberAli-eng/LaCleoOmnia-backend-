@@ -82,9 +82,22 @@ def upgrade() -> None:
             op.drop_constraint('sku_costs_sku_key', 'sku_costs', type_='unique')
     op.drop_index('ix_sku_costs_sku', table_name='sku_costs')
     op.create_index(op.f('ix_sku_costs_sku'), 'sku_costs', ['sku'], unique=True)
-    op.add_column('sync_jobs', sa.Column('records_processed', sa.Integer(), nullable=True))
-    op.add_column('sync_jobs', sa.Column('records_failed', sa.Integer(), nullable=True))
-    op.add_column('sync_jobs', sa.Column('error_message', sa.String(), nullable=True))
+    sync_jobs_columns = {col["name"] for col in inspector.get_columns("sync_jobs")}
+    if "records_processed" not in sync_jobs_columns:
+        if conn.dialect.name == "postgresql":
+            op.execute("ALTER TABLE sync_jobs ADD COLUMN IF NOT EXISTS records_processed INTEGER")
+        else:
+            op.add_column('sync_jobs', sa.Column('records_processed', sa.Integer(), nullable=True))
+    if "records_failed" not in sync_jobs_columns:
+        if conn.dialect.name == "postgresql":
+            op.execute("ALTER TABLE sync_jobs ADD COLUMN IF NOT EXISTS records_failed INTEGER")
+        else:
+            op.add_column('sync_jobs', sa.Column('records_failed', sa.Integer(), nullable=True))
+    if "error_message" not in sync_jobs_columns:
+        if conn.dialect.name == "postgresql":
+            op.execute("ALTER TABLE sync_jobs ADD COLUMN IF NOT EXISTS error_message VARCHAR")
+        else:
+            op.add_column('sync_jobs', sa.Column('error_message', sa.String(), nullable=True))
     op.drop_index('ix_webhook_events_created_at', table_name='webhook_events')
     # ### end Alembic commands ###
 
