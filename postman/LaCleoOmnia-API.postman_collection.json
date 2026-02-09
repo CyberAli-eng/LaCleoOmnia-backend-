@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "LaCleoOmnia API",
-    "description": "Order & Inventory Management System – Auth, Orders, Inventory, Integrations (Shopify, Delhivery, Selloship), Shipments, Analytics, Profit, SKU Costs, Webhooks, Workers.",
+    "description": "Order & Inventory Management System – Auth, Orders, Inventory, Integrations (Shopify, Delhivery, Selloship), Shipments, Analytics, Profit, Finance, SKU Costs, Webhooks, Workers.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -595,6 +595,163 @@
                 { "key": "limit", "value": "50", "disabled": true }
               ]
             }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Finance",
+      "item": [
+        {
+          "name": "GET Finance Overview",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/finance/overview",
+            "description": "Get finance overview statistics including total orders, revenue, expenses, profit"
+          }
+        },
+        {
+          "name": "GET Order Finance Details",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/finance/orders/{{order_id}}",
+            "description": "Get detailed finance information for a specific order including expenses and settlements"
+          }
+        },
+        {
+          "name": "GET P&L Report",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/finance/pnl?start_date=2024-01-01&end_date=2024-12-31",
+              "host": ["{{base_url}}"],
+              "path": ["api", "finance", "pnl"],
+              "query": [
+                { "key": "start_date", "value": "2024-01-01", "description": "Start date for P&L report" },
+                { "key": "end_date", "value": "2024-12-31", "description": "End date for P&L report" }
+              ]
+            },
+            "description": "Get Profit & Loss report for a date range with expense breakdown"
+          }
+        },
+        {
+          "name": "GET Settlement Pipeline",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/finance/settlements?status=PENDING",
+              "host": ["{{base_url}}"],
+              "path": ["api", "finance", "settlements"],
+              "query": [
+                { "key": "status", "value": "PENDING", "description": "Filter by settlement status (PENDING, SETTLED, OVERDUE)", "disabled": true },
+                { "key": "partner", "value": "", "description": "Filter by partner (Payment Gateway, Marketplace, Courier)", "disabled": true }
+              ]
+            },
+            "description": "Get settlement pipeline with pending, settled, and overdue settlements"
+          }
+        },
+        {
+          "name": "POST Create Settlement",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"order_id\": \"order-uuid-here\",\n  \"partner\": \"Payment Gateway\",\n  \"amount\": 1000.00,\n  \"expected_date\": \"2024-02-15\",\n  \"reference_id\": \"SETTLE-123\",\n  \"notes\": \"Expected settlement\"\n}"
+            },
+            "url": "{{base_url}}/api/finance/settlements",
+            "description": "Create manual settlement record for an order"
+          }
+        },
+        {
+          "name": "PATCH Update Settlement",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"actual_date\": \"2024-02-14\",\n  \"reference_id\": \"SETTLE-123-CONFIRMED\",\n  \"notes\": \"Settled successfully\"\n}"
+            },
+            "url": "{{base_url}}/api/finance/settlements/{{settlement_id}}",
+            "description": "Update settlement (mark as settled)"
+          }
+        },
+        {
+          "name": "GET Cashflow Forecast",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/finance/settlements/forecast?days=30",
+              "host": ["{{base_url}}"],
+              "path": ["api", "finance", "settlements", "forecast"],
+              "query": [
+                { "key": "days", "value": "30", "description": "Number of days for forecast (1-365)" }
+              ]
+            },
+            "description": "Get cashflow forecast for next N days"
+          }
+        },
+        {
+          "name": "GET Risk Summary",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/finance/risk",
+            "description": "Get risk summary for user's customers including high-risk customers"
+          }
+        },
+        {
+          "name": "GET Customer Risk Profile",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/finance/risk/{{customer_id}}",
+            "description": "Get detailed risk profile for a specific customer"
+          }
+        },
+        {
+          "name": "POST Add Manual Expense",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"order_id\": \"order-uuid-here\",\n  \"expense_type\": \"OVERHEAD\",\n  \"amount\": 50.00,\n  \"description\": \"Manual overhead adjustment\",\n  \"effective_date\": \"2024-02-10\"\n}"
+            },
+            "url": "{{base_url}}/api/finance/expenses",
+            "description": "Add manual expense to an order"
+          }
+        },
+        {
+          "name": "GET Expense Summary",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/finance/expenses/summary",
+            "description": "Get expense summary by type for all orders"
+          }
+        },
+        {
+          "name": "POST Compute Order Finance",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{base_url}}/api/finance/orders/{{order_id}}/compute",
+            "description": "Manually trigger finance computation for an order"
+          }
+        },
+        {
+          "name": "POST Run Settlement Job",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{base_url}}/api/finance/jobs/settlements",
+            "description": "Run settlement job (admin only) - detects overdue and auto-settles"
           }
         }
       ]

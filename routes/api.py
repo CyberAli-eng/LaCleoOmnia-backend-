@@ -26,6 +26,7 @@ from app.http.controllers import (
     sku_costs,
     profit,
     mock,
+    finance,
 )
 
 logger = logging.getLogger(__name__)
@@ -56,3 +57,4 @@ def register_routes(app: FastAPI, settings) -> None:
     app.include_router(integrations.router, prefix="/api/integrations", tags=["integrations"])
     app.include_router(sku_costs.router, prefix="/api/sku-costs", tags=["sku-costs"])
     app.include_router(profit.router, prefix="/api/profit", tags=["profit"])
+    app.include_router(finance.router, prefix="/api/finance", tags=["finance"])

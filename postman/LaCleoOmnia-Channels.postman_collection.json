@@ -1,0 +1,140 @@
+{
+  "info": {
+    "name": "LaCleoOmnia Channels API",
+    "description": "Complete API collection for all channels and integrations - Commerce, Marketing, and Logistics.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000"
+    },
+    {
+      "key": "token",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "00. Health & Auth",
+      "item": [
+        {
+          "name": "GET Health check",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": "{{base_url}}/health"
+          }
+        },
+        {
+          "name": "POST Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var json = pm.response.json();",
+                  "if (json.token) { pm.collectionVariables.set('token', json.token); }"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@local\",\n  \"password\": \"Admin@123\"\n}"
+            },
+            "url": "{{base_url}}/api/auth/login"
+          }
+        }
+      ]
+    },
+    {
+      "name": "01. Commerce Channels",
+      "item": [
+        {
+          "name": "Shopify",
+          "item": [
+            { "name": "GET List channels", "request": { "method": "GET", "url": "{{base_url}}/api/channels" }},
+            { "name": "POST Connect Shopify (Manual)", "request": { "method": "POST", "body": { "mode": "raw", "raw": "{\"seller_name\": \"Your Store\", \"shop_domain\": \"your-store\", \"access_token\": \"shpat_...\"}" }, "url": "{{base_url}}/api/channels/shopify/connect" }},
+            { "name": "POST Import Shopify Orders", "request": { "method": "POST", "url": "{{base_url}}/api/channels/shopify/import-orders" }},
+            { "name": "POST Register Webhooks", "request": { "method": "POST", "url": "{{base_url}}/api/integrations/shopify/register-webhooks" }}
+          ]
+        },
+        {
+          "name": "Amazon",
+          "item": [
+            { "name": "GET Amazon Status", "request": { "method": "GET", "url": "{{base_url}}/api/integrations/providers/amazon/status" }},
+            { "name": "POST Connect Amazon", "request": { "method": "POST", "url": "{{base_url}}/api/integrations/providers/amazon/connect" }}
+          ]
+        },
+        {
+          "name": "Flipkart/Myntra",
+          "item": [
+            { "name": "POST Connect Flipkart", "request": { "method": "POST", "url": "{{base_url}}/api/integrations/providers/flipkart/connect" }},
+            { "name": "POST Connect Myntra", "request": { "method": "POST", "url": "{{base_url}}/api/integrations/providers/myntra/connect" }}
+          ]
+        }
+      ]
+    },
+    {
+      "name": "02. Marketing & Ads",
+      "item": [
+        {
+          "name": "Meta Ads",
+          "item": [
+            { "name": "GET Status", "request": { "method": "GET", "url": "{{base_url}}/api/integrations/providers/meta_ads/status" }},
+            { "name": "POST Connect", "request": { "method": "POST", "url": "{{base_url}}/api/integrations/providers/meta_ads/connect" }}
+          ]
+        },
+        {
+          "name": "Google Ads",
+          "item": [
+            { "name": "GET Status", "request": { "method": "GET", "url": "{{base_url}}/api/integrations/providers/google_ads/status" }},
+            { "name": "POST Connect", "request": { "method": "POST", "url": "{{base_url}}/api/integrations/providers/google_ads/connect" }}
+          ]
+        }
+      ]
+    },
+    {
+      "name": "03. Logistics & Shipping",
+      "item": [
+        {
+          "name": "Delhivery",
+          "item": [
+            { "name": "POST Connect Delhivery", "request": { "method": "POST", "url": "{{base_url}}/api/integrations/providers/delhivery/connect" }},
+            { "name": "POST Sync Shipments", "request": { "method": "POST", "url": "{{base_url}}/api/shipments/sync" }}
+          ]
+        },
+        {
+          "name": "Selloship",
+          "item": [
+            { "name": "POST Connect Selloship", "request": { "method": "POST", "url": "{{base_url}}/api/integrations/providers/selloship/connect" }}
+          ]
+        }
+      ]
+    },
+    {
+      "name": "04. System & Sync Jobs",
+      "item": [
+        { "name": "GET Integration Catalog", "request": { "method": "GET", "url": "{{base_url}}/api/integrations/catalog" }},
+        { "name": "GET List Sync Jobs", "request": { "method": "GET", "url": "{{base_url}}/api/sync/jobs" }},
+        { "name": "GET List Workers", "request": { "method": "GET", "url": "{{base_url}}/api/workers" }}
+      ]
+    }
+  ]
+}

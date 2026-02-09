@@ -204,6 +204,7 @@ class Order(Base):
     channel_id = Column("channel_id", String, ForeignKey("channels.id", ondelete="SET NULL"), nullable=True)
     channel_account_id = Column("channel_account_id", String, ForeignKey("channel_accounts.id", ondelete="SET NULL"), nullable=True)
     channel_order_id = Column("channel_order_id", String, nullable=False)
+    customer_id = Column("customer_id", String, nullable=True)
     customer_name = Column("customer_name", String, nullable=False)
     customer_email = Column("customer_email", String, nullable=True)
     shipping_address = Column("shipping_address", String, nullable=True)
@@ -476,3 +477,134 @@ class WebhookSubscription(Base):
 
     __table_args__ = (UniqueConstraint("user_id", "source", "shop_domain", "topic", name="uq_webhook_subscription_user_source_shop_topic"),)
     user = relationship("User")
+
+
+# Order Finance Engine Models
+class PaymentType(str, enum.Enum):
+    PREPAID = "PREPAID"
+    COD = "COD"
+
+class FulfilmentStatus(str, enum.Enum):
+    DELIVERED = "DELIVERED"
+    RTO = "RTO"
+    CANCELLED = "CANCELLED"
+    IN_TRANSIT = "IN_TRANSIT"
+
+class ProfitStatus(str, enum.Enum):
+    PROFIT = "PROFIT"
+    LOSS = "LOSS"
+
+class ExpenseType(str, enum.Enum):
+    FIXED = "FIXED"
+    ADS = "ADS"
+    FWD_SHIP = "FWD_SHIP"
+    REV_SHIP = "REV_SHIP"
+    GATEWAY = "GATEWAY"
+    COD_FEE = "COD_FEE"
+    OVERHEAD = "OVERHEAD"
+
+class ExpenseSource(str, enum.Enum):
+    MANUAL = "MANUAL"
+    API = "API"
+    SYSTEM = "SYSTEM"
+
+class SettlementStatus(str, enum.Enum):
+    PENDING = "PENDING"
+    SETTLED = "SETTLED"
+    OVERDUE = "OVERDUE"
+
+class RiskTag(str, enum.Enum):
+    SAFE = "SAFE"
+    MEDIUM = "MEDIUM"
+    HIGH = "HIGH"
+
+
+class OrderFinance(Base):
+    __tablename__ = "order_finance"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    order_id = Column("order_id", String, ForeignKey("orders.id", ondelete="CASCADE"), unique=True, nullable=False, index=True)
+    
+    order_value = Column("order_value", Numeric(12, 2), default=0, nullable=False)
+    revenue_realized = Column("revenue_realized", Numeric(12, 2), default=0, nullable=False)
+    
+    payment_type = Column("payment_type", SQLEnum(PaymentType), nullable=False)
+    fulfilment_status = Column("fulfilment_status", SQLEnum(FulfilmentStatus), nullable=False)
+    
+    total_expense = Column("total_expense", Numeric(12, 2), default=0, nullable=False)
+    net_profit = Column("net_profit", Numeric(12, 2), default=0, nullable=False)
+    
+    profit_status = Column("profit_status", SQLEnum(ProfitStatus), nullable=False)
+    
+    created_at = Column("created_at", DateTime, server_default=func.now())
+    updated_at = Column("updated_at", DateTime, server_default=func.now(), onupdate=func.now())
+    
+    order = relationship("Order", backref=backref("finance", uselist=False))
+    expenses = relationship("OrderExpense", back_populates="order_finance", cascade="all, delete-orphan")
+    settlements = relationship("OrderSettlement", back_populates="order_finance", cascade="all, delete-orphan")
+
+
+class OrderExpense(Base):
+    __tablename__ = "order_expenses"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    order_id = Column("order_id", String, ForeignKey("orders.id", ondelete="CASCADE"), nullable=False, index=True)
+    order_finance_id = Column("order_finance_id", String, ForeignKey("order_finance.id", ondelete="CASCADE"), nullable=False, index=True)
+    
+    type = Column("type", SQLEnum(ExpenseType), nullable=False)
+    source = Column("source", SQLEnum(ExpenseSource), nullable=False)
+    amount = Column("amount", Numeric(12, 2), default=0, nullable=False)
+    
+    effective_date = Column("effective_date", Date, nullable=False)
+    editable = Column("editable", Boolean, default=True, nullable=False)
+    
+    description = Column("description", String, nullable=True)
+    
+    created_at = Column("created_at", DateTime, server_default=func.now())
+    updated_at = Column("updated_at", DateTime, server_default=func.now(), onupdate=func.now())
+    
+    order = relationship("Order", backref=backref("expenses"))
+    order_finance = relationship("OrderFinance", back_populates="expenses")
+
+
+class OrderSettlement(Base):
+    __tablename__ = "order_settlements"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    order_id = Column("order_id", String, ForeignKey("orders.id", ondelete="CASCADE"), nullable=False, index=True)
+    order_finance_id = Column("order_finance_id", String, ForeignKey("order_finance.id", ondelete="CASCADE"), nullable=False, index=True)
+    
+    partner = Column("partner", String, nullable=False)  # payment gateway, courier, marketplace
+    expected_date = Column("expected_date", Date, nullable=False)
+    actual_date = Column("actual_date", Date, nullable=True)
+    
+    amount = Column("amount", Numeric(12, 2), default=0, nullable=False)
+    status = Column("status", SQLEnum(SettlementStatus), nullable=False)
+    
+    reference_id = Column("reference_id", String, nullable=True)  # external settlement ID
+    notes = Column("notes", String, nullable=True)
+    
+    created_at = Column("created_at", DateTime, server_default=func.now())
+    updated_at = Column("updated_at", DateTime, server_default=func.now(), onupdate=func.now())
+    
+    order = relationship("Order", backref=backref("settlements"))
+    order_finance = relationship("OrderFinance", back_populates="settlements")
+
+
+class CustomerRisk(Base):
+    __tablename__ = "customer_risk"
+
+    customer_id = Column("customer_id", String, primary_key=True)
+    
+    total_orders = Column("total_orders", Integer, default=0, nullable=False)
+    rto_count = Column("rto_count", Integer, default=0, nullable=False)
+    loss_amount = Column("loss_amount", Numeric(12, 2), default=0, nullable=False)
+    
+    risk_tag = Column("risk_tag", SQLEnum(RiskTag), nullable=False)
+    risk_score = Column("risk_score", Numeric(5, 2), default=0.0, nullable=False)  # 0-100 score
+    
+    last_order_date = Column("last_order_date", Date, nullable=True)
+    last_updated_at = Column("last_updated_at", DateTime, server_default=func.now(), onupdate=func.now())
+    
+    # CustomerRisk has no direct FK relationship to Order, so we remove the relationship
+    # This will be handled through queries instead

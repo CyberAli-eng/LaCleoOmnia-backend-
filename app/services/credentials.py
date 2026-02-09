@@ -33,8 +33,7 @@ def decrypt_token(encrypted: str) -> str:
     return decrypted.decode()
 
 
-def get_provider_credentials(db: Session, user_id: str, provider_id: str) -> from typing import Optional
-Optional[Dict[str, Any]]:
+def get_provider_credentials(db: Session, user_id: str, provider_id: str) -> Optional[Dict[str, Any]]:
     """Return decrypted provider credentials dict for the given user and provider, or None."""
     cred = (
         db.query(ProviderCredential)
