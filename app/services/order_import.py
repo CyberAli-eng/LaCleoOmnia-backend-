@@ -4,6 +4,7 @@ Order import service for Shopify, Amazon, Flipkart, Myntra.
 from collections import defaultdict
 from datetime import datetime, timezone, timedelta
 from decimal import Decimal
+from typing import Optional
 
 from sqlalchemy.orm import Session
 
@@ -249,8 +250,7 @@ def _persist_one_common_order(
     warehouse: Warehouse,
     common: dict,
     sync_job: SyncJob,
-) -> tuple[bool, from typing import Optional
-Optional[str]]:
+) -> tuple[bool, Optional[str]]:
     """Create Order + OrderItems from a common-order dict. Returns (imported, None) or (False, 'skipped'/'error')."""
     channel_order_id = str(common.get("channel_order_id") or common.get("id") or "")
     if not channel_order_id:

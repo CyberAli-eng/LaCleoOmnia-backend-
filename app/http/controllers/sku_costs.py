@@ -5,6 +5,8 @@ import csv
 import io
 import logging
 from decimal import Decimal
+from typing import Optional
+
 from fastapi import APIRouter, Depends, File, HTTPException, status, Query, UploadFile
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -26,10 +28,10 @@ class SkuCostCreate(BaseModel):
 
 
 class SkuCostUpdate(BaseModel):
-    product_cost: float | None = None
-    packaging_cost: float | None = None
-    box_cost: float | None = None
-    inbound_cost: float | None = None
+    product_cost: Optional[float] = None
+    packaging_cost: Optional[float] = None
+    box_cost: Optional[float] = None
+    inbound_cost: Optional[float] = None
 
 
 class SkuCostResponse(BaseModel):
@@ -39,10 +41,8 @@ class SkuCostResponse(BaseModel):
     packaging_cost: float
     box_cost: float
     inbound_cost: float
-    created_at: from typing import Optional
-Optional[str]
-    updated_at: from typing import Optional
-Optional[str]
+    created_at: Optional[str]
+    updated_at: Optional[str]
 
     class Config:
         from_attributes = True
@@ -63,8 +63,7 @@ def _to_response(row: SkuCost) -> dict:
 
 @router.get("", response_model=list)
 async def list_sku_costs(
-    q: from typing import Optional
-Optional[str] = Query(None, description="Filter by SKU (substring)"),
+    q: Optional[str] = Query(None, description="Filter by SKU (substring)"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):

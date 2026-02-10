@@ -7,7 +7,6 @@ from decimal import Decimal
 from typing import Optional, Dict, List
 from sqlalchemy.orm import Session
 from sqlalchemy import func, and_, or_
-
 from app.models import Order, CustomerRisk, OrderFinance, RiskTag, FulfilmentStatus
 
 logger = logging.getLogger(__name__)

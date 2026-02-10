@@ -7,7 +7,7 @@ import json
 import logging
 from datetime import datetime, timezone, timedelta, date
 from decimal import Decimal
-from typing import Any
+from typing import Any, Optional
 
 from fastapi import APIRouter, BackgroundTasks, Body, Depends, HTTPException, status, Query
 from pydantic import BaseModel
@@ -364,7 +364,7 @@ def _validate_provider_credentials(provider_id: str, body: dict[str, Any]) -> No
             )
 
 
-def _get_shopify_app_credentials(db: Session, user_id: str) -> dict | None:
+def _get_shopify_app_credentials(db: Session, user_id: str) -> Optional[dict]:
     """Return { apiKey, apiSecret } for current user's Shopify app credentials, or None."""
     cred = db.query(ProviderCredential).filter(
         ProviderCredential.user_id == user_id,
@@ -573,7 +573,7 @@ async def connect_provider(
     return {"connected": True, "message": "Credentials saved"}
 
 
-def _get_user_channel_account(db: Session, user_id: str, channel_type: ChannelType) -> ChannelAccount | None:
+def _get_user_channel_account(db: Session, user_id: str, channel_type: ChannelType) -> Optional[ChannelAccount]:
     """Get the current user's CONNECTED ChannelAccount for the given channel type."""
     channel = db.query(Channel).filter(Channel.name == channel_type).first()
     if not channel:
@@ -1144,8 +1144,7 @@ async def shopify_sync(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="Failed to fetch orders from Shopify.",
         )
-    def _format_address(addr: dict | None) -> from typing import Optional
-Optional[str]:
+    def _format_address(addr: Optional[dict]) -> Optional[str]:
         if not addr or not isinstance(addr, dict):
             return None
         parts = []

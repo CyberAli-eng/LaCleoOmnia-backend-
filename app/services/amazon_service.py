@@ -5,7 +5,7 @@ Docs: https://developer-docs.amazon.com/sp-api/docs/orders-api
 """
 import logging
 from datetime import datetime, timezone, timedelta
-from typing import Any
+from typing import Any, Optional
 
 import httpx
 
@@ -47,7 +47,7 @@ async def get_orders(
     access_token: str,
     seller_id: str,
     marketplace_id: str = DEFAULT_MARKETPLACE_ID,
-    created_after: datetime | None = None,
+    created_after: Optional[datetime] = None,
     max_pages: int = 10,
     timeout: float = 30.0,
 ) -> list[dict[str, Any]]:
@@ -62,8 +62,7 @@ async def get_orders(
     created_after_str = created_after.strftime("%Y-%m-%dT%H:%M:%SZ")
 
     all_orders: list[dict[str, Any]] = []
-    next_token: from typing import Optional
-Optional[str] = None
+    next_token: Optional[str] = None
     page = 0
 
     async with httpx.AsyncClient(timeout=timeout) as client:

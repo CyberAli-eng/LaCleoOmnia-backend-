@@ -25,10 +25,8 @@ class ShipmentCreate(BaseModel):
     order_id: str
     awb_number: str
     courier_name: str = "delhivery"
-    tracking_url: from typing import Optional
-Optional[str] = None
-    label_url: from typing import Optional
-Optional[str] = None
+    tracking_url: Optional[str] = None
+    label_url: Optional[str] = None
     forward_cost: float = 0.0
     reverse_cost: float = 0.0
 

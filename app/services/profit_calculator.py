@@ -6,6 +6,8 @@ Marketing cost = blended CAC from ad_spend_daily (daily_spend / daily_orders for
 import logging
 from datetime import date
 from decimal import Decimal
+from typing import Optional
+
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
@@ -37,7 +39,7 @@ def _get_daily_cac(db: Session, order_date: date) -> Decimal:
     return (daily_spend / daily_orders).quantize(Decimal("0.01"))
 
 
-def compute_profit_for_order(db: Session, order_id: str) -> OrderProfit | None:
+def compute_profit_for_order(db: Session, order_id: str) -> Optional[OrderProfit]:
     """
     Compute profit for an order and upsert order_profit.
     Uses shipment status (DELIVERED, RTO_DONE, RTO_INITIATED, LOST) and order status (CANCELLED) for rules.
@@ -56,8 +58,7 @@ def compute_profit_for_order(db: Session, order_id: str) -> OrderProfit | None:
     payment_fee = Decimal("0")
     status = "computed"
     missing_skus: list[str] = []
-    courier_status: from typing import Optional
-Optional[str] = None
+    courier_status: Optional[str] = None
     final_status: str = "PENDING"
     rto_loss = Decimal("0")
     lost_loss = Decimal("0")

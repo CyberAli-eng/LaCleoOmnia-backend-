@@ -21,10 +21,8 @@ class ConfigRequest(BaseModel):
     credentials: Dict[str, Any]
 
 class ConfigUpdateRequest(BaseModel):
-    inventorySyncEnabled: from typing import Optional
-Optional[bool] = None
-    inventorySyncIntervalMinutes: from typing import Optional
-Optional[int] = None
+    inventorySyncEnabled: Optional[bool] = None
+    inventorySyncIntervalMinutes: Optional[int] = None
 
 @router.get("/status")
 async def get_config_status(

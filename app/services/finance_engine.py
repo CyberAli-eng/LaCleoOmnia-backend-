@@ -6,6 +6,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Optional, Dict, List
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 
 from app.models import (
     Order, OrderFinance, OrderExpense, OrderSettlement, CustomerRisk,
@@ -376,28 +377,52 @@ def _update_customer_risk(db: Session, order: Order, fulfilment_status: Fulfilme
 
 
 def get_finance_overview(db: Session, user_id: Optional[str] = None) -> Dict:
-    """Get finance overview statistics"""
+    """Get finance overview statistics. Returns keys expected by frontend: revenue, netProfit, loss, rtoPercent, cashPending, codPercent."""
     query = db.query(OrderFinance)
-    
     if user_id:
         query = query.join(Order).filter(Order.user_id == user_id)
-    
     finances = query.all()
-    
+
     total_orders = len(finances)
     total_revenue = sum(f.revenue_realized for f in finances)
     total_expenses = sum(f.total_expense for f in finances)
     total_profit = sum(f.net_profit for f in finances)
-    
+    loss = sum(abs(f.net_profit) for f in finances if f.net_profit < 0)
     profit_orders = len([f for f in finances if f.profit_status == ProfitStatus.PROFIT])
     loss_orders = len([f for f in finances if f.profit_status == ProfitStatus.LOSS])
-    
+
+    # Cash pending: sum of PENDING settlement amounts
+    from app.models import OrderSettlement, SettlementStatus
+    settlement_query = db.query(OrderSettlement).join(OrderFinance).join(Order)
+    if user_id:
+        settlement_query = settlement_query.filter(Order.user_id == user_id)
+    pending_settlements = settlement_query.filter(OrderSettlement.status == SettlementStatus.PENDING).all()
+    cash_pending = sum(float(s.amount) for s in pending_settlements)
+
+    # COD % and RTO % from orders
+    cod_count = 0
+    rto_count = 0
+    for f in finances:
+        o = db.query(Order).filter(Order.id == f.order_id).first()
+        if o and getattr(o, "payment_mode", None) and o.payment_mode.value.upper() == "COD":
+            cod_count += 1
+        if f.fulfilment_status == FulfilmentStatus.RTO:
+            rto_count += 1
+    cod_percent = (cod_count / total_orders * 100) if total_orders else 0
+    rto_percent = (rto_count / total_orders * 100) if total_orders else 0
+
     return {
+        "revenue": float(total_revenue),
+        "netProfit": float(total_profit),
+        "loss": float(loss),
+        "rtoPercent": round(rto_percent, 1),
+        "cashPending": round(cash_pending, 2),
+        "codPercent": round(cod_percent, 1),
         "total_orders": total_orders,
         "total_revenue": float(total_revenue),
         "total_expenses": float(total_expenses),
         "total_profit": float(total_profit),
         "profit_orders": profit_orders,
         "loss_orders": loss_orders,
-        "profit_margin": float(total_profit / total_revenue * 100) if total_revenue > 0 else 0
+        "profit_margin": float(total_profit / total_revenue * 100) if total_revenue > 0 else 0,
     }

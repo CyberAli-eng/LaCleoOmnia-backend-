@@ -68,8 +68,7 @@ class ShopifyConnectRequest(BaseModel):
 class ChannelAccountResponse(BaseModel):
     id: str
     seller_name: str
-    shop_domain: from typing import Optional
-Optional[str]
+    shop_domain: Optional[str]
     status: ChannelAccountStatus
 
 # Order Schemas
@@ -80,15 +79,13 @@ class OrderItemResponse(BaseModel):
     qty: int
     price: Decimal
     fulfillment_status: FulfillmentStatus
-    variant_id: from typing import Optional
-Optional[str]
+    variant_id: Optional[str]
 
 class OrderResponse(BaseModel):
     id: str
     channel_order_id: str
     customer_name: str
-    customer_email: from typing import Optional
-Optional[str]
+    customer_email: Optional[str]
     payment_mode: PaymentMode
     order_total: Decimal
     status: OrderStatus
@@ -98,10 +95,8 @@ Optional[str]
 class ShipOrderRequest(BaseModel):
     courier_name: str = "delhivery"
     awb_number: str
-    tracking_url: from typing import Optional
-Optional[str] = None
-    label_url: from typing import Optional
-Optional[str] = None
+    tracking_url: Optional[str] = None
+    label_url: Optional[str] = None
     forward_cost: float = 0.0
     reverse_cost: float = 0.0
 
@@ -123,43 +118,34 @@ class InventoryResponse(BaseModel):
 # Product Schemas
 class ProductCreateRequest(BaseModel):
     title: str
-    brand: from typing import Optional
-Optional[str] = None
-    category: from typing import Optional
-Optional[str] = None
+    brand: Optional[str] = None
+    category: Optional[str] = None
 
 class VariantCreateRequest(BaseModel):
     product_id: str
     sku: str
-    barcode: from typing import Optional
-Optional[str] = None
+    barcode: Optional[str] = None
     mrp: Decimal
     selling_price: Decimal
-    weight_grams: from typing import Optional
-Optional[int] = None
+    weight_grams: Optional[int] = None
 
 # Warehouse Schemas
 class WarehouseCreateRequest(BaseModel):
     name: str
-    city: from typing import Optional
-Optional[str] = None
-    state: from typing import Optional
-Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
 
 # Sync Schemas
 class SyncJobResponse(BaseModel):
     id: str
     job_type: SyncJobType
     status: SyncJobStatus
-    started_at: from typing import Optional
-Optional[datetime]
-    finished_at: from typing import Optional
-Optional[datetime]
+    started_at: Optional[datetime]
+    finished_at: Optional[datetime]
 
 class SyncLogResponse(BaseModel):
     id: str
     level: LogLevel
     message: str
-    raw_payload: from typing import Optional
-Optional[dict]
+    raw_payload: Optional[dict]
     created_at: datetime

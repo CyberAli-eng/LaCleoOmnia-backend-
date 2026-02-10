@@ -13,12 +13,9 @@ router = APIRouter()
 
 @router.get("")
 async def list_audit_logs(
-    entity_type: from typing import Optional
-Optional[str] = Query(None),
-    entity_id: from typing import Optional
-Optional[str] = Query(None),
-    action: from typing import Optional
-Optional[str] = Query(None),
+    entity_type: Optional[str] = Query(None),
+    entity_id: Optional[str] = Query(None),
+    action: Optional[str] = Query(None),
     limit: int = Query(100, le=500),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)

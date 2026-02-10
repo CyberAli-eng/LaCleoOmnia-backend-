@@ -21,8 +21,7 @@ logger = logging.getLogger(__name__)
 DEFAULT_USD_TO_INR = Decimal("83")
 
 
-def _get_meta_credentials(db: Session, user_id: str) -> from typing import Optional
-Optional[dict]:
+def _get_meta_credentials(db: Session, user_id: str) -> Optional[dict]:
     """Return { ad_account_id, access_token } for meta_ads or None."""
     cred = db.query(ProviderCredential).filter(
         ProviderCredential.user_id == user_id,
@@ -43,8 +42,7 @@ Optional[dict]:
     return None
 
 
-def _get_google_credentials(db: Session, user_id: str) -> from typing import Optional
-Optional[dict]:
+def _get_google_credentials(db: Session, user_id: str) -> Optional[dict]:
     """Return { developer_token, client_id, client_secret, refresh_token, customer_id } or None."""
     cred = db.query(ProviderCredential).filter(
         ProviderCredential.user_id == user_id,
@@ -68,8 +66,7 @@ Optional[dict]:
     return None
 
 
-def _to_inr(spend: Decimal, currency: str, usd_to_inr: from typing import Optional
-Optional[Decimal] = None) -> Decimal:
+def _to_inr(spend: Decimal, currency: str, usd_to_inr: Optional[Decimal] = None) -> Decimal:
     """Convert spend to INR if currency is USD. Otherwise return as-is (assume INR)."""
     if not spend or spend <= 0:
         return Decimal("0")
@@ -147,8 +144,7 @@ async def sync_ad_spend_for_date(db: Session, user_id: str, target_date: date) -
     return result
 
 
-def get_first_user_id_for_sync(db: Session) -> from typing import Optional
-Optional[str]:
+def get_first_user_id_for_sync(db: Session) -> Optional[str]:
     """Return first user id that has meta_ads or google_ads credentials (for nightly sync)."""
     for provider in ("meta_ads", "google_ads"):
         cred = db.query(ProviderCredential).filter(

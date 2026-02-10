@@ -19,8 +19,8 @@ async def get_orders(
     *,
     api_key: str,
     seller_id: str,
-    from_date: datetime | None = None,
-    to_date: datetime | None = None,
+    from_date: Optional[datetime] = None,
+    to_date: Optional[datetime] = None,
     timeout: float = 30.0,
 ) -> list[dict[str, Any]]:
     """

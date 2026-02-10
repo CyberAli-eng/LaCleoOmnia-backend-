@@ -35,8 +35,7 @@ async def request_with_retry(
     Perform HTTP request with timeout and optional retries for server/network errors.
     Retries only on retry_on status codes and on connection errors (for GET/HEAD by default).
     """
-    last_exc: from typing import Optional
-Optional[Exception] = None
+    last_exc: Optional[Exception] = None
     for attempt in range(max_retries + 1):
         try:
             async with httpx.AsyncClient(timeout=timeout) as client:
@@ -60,10 +59,8 @@ Optional[Exception] = None
 async def get_with_retry(
     url: str,
     *,
-    params: from typing import Optional
-Optional[dict] = None,
-    headers: from typing import Optional
-Optional[dict] = None,
+    params: Optional[dict] = None,
+    headers: Optional[dict] = None,
     timeout: float = DEFAULT_TIMEOUT,
     max_retries: int = DEFAULT_RETRIES,
 ) -> httpx.Response:
@@ -76,10 +73,8 @@ Optional[dict] = None,
 async def post_no_retry(
     url: str,
     *,
-    json: from typing import Optional
-Optional[dict] = None,
-    headers: from typing import Optional
-Optional[dict] = None,
+    json: Optional[dict] = None,
+    headers: Optional[dict] = None,
     timeout: float = DEFAULT_TIMEOUT,
 ) -> httpx.Response:
     """POST with no retries (non-idempotent). Uses single attempt with timeout."""

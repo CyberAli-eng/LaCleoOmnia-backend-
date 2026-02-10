@@ -2,6 +2,8 @@
 Profit engine: recompute order profit (after sku_costs update or order change).
 """
 import logging
+from typing import Optional
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
@@ -16,8 +18,7 @@ router = APIRouter()
 
 @router.post("/recompute")
 async def recompute_profit(
-    order_id: from typing import Optional
-Optional[str] = Query(None, description="Recompute one order; omit to recompute all for user"),
+    order_id: Optional[str] = Query(None, description="Recompute one order; omit to recompute all for user"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):

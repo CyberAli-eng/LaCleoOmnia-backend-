@@ -4,7 +4,7 @@ Uses OAuth2 client_credentials. Docs: https://seller.flipkart.com/api-docs/order
 """
 import logging
 from datetime import datetime, timezone, timedelta
-from typing import Any
+from typing import Any, Optional
 
 import httpx
 
@@ -35,8 +35,8 @@ async def get_access_token(
 async def get_orders(
     *,
     access_token: str,
-    from_date: datetime | None = None,
-    to_date: datetime | None = None,
+    from_date: Optional[datetime] = None,
+    to_date: Optional[datetime] = None,
     max_pages: int = 20,
     page_size: int = 20,
     timeout: float = 30.0,
@@ -56,8 +56,7 @@ async def get_orders(
     to_str = to_date.strftime("%Y-%m-%dT%H:%M:%S")
 
     all_items: list[dict[str, Any]] = []
-    next_page_url: from typing import Optional
-Optional[str] = None
+    next_page_url: Optional[str] = None
     page = 0
 
     async with httpx.AsyncClient(timeout=timeout) as client:

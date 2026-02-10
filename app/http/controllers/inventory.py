@@ -28,10 +28,8 @@ router = APIRouter()
 
 @router.get("", response_model=dict)
 async def list_inventory(
-    warehouse_id: from typing import Optional
-Optional[str] = Query(None),
-    sku: from typing import Optional
-Optional[str] = Query(None),
+    warehouse_id: Optional[str] = Query(None),
+    sku: Optional[str] = Query(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):

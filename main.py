@@ -4,6 +4,7 @@ LaCleoOmnia OMS - FastAPI Backend
 import asyncio
 import os
 from datetime import date, datetime, timedelta, timezone
+from typing import Optional
 from fastapi import FastAPI, Request, HTTPException, Depends, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse, RedirectResponse
@@ -276,7 +277,7 @@ def _get_frontend_url() -> str:
     return os.getenv("FRONTEND_URL") or "http://localhost:3000"
 
 
-def _shopify_app_url_redirect(request: Request) -> RedirectResponse | None:
+def _shopify_app_url_redirect(request: Request) -> Optional[RedirectResponse]:
     """If this is a Shopify App install redirect (shop in query), redirect to frontend /auth/shopify."""
     shop = request.query_params.get("shop")
     if not shop:

@@ -42,8 +42,7 @@ def get_password_hash(password: str) -> str:
     # Return as string for database storage
     return hashed.decode('utf-8')
 
-def create_access_token(data: dict, expires_delta: from typing import Optional
-Optional[timedelta] = None):
+def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     """Create a JWT token"""
     to_encode = data.copy()
     if expires_delta:

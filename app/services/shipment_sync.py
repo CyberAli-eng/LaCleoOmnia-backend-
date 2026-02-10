@@ -14,8 +14,7 @@ from app.models import Shipment, ShipmentStatus, ShipmentTracking, Order, Channe
 logger = logging.getLogger(__name__)
 
 
-def _get_courier_api_key(db: Any, user_id: str, courier_name: str) -> from typing import Optional
-Optional[str]:
+def _get_courier_api_key(db: Any, user_id: str, courier_name: str) -> Optional[str]:
     """
     Return API key for (user_id, courier). Courier normalized: delhivery | selloship.
     Uses ProviderCredential first, then env fallback.
@@ -46,8 +45,7 @@ Optional[str]:
     return None
 
 
-def _user_id_for_shipment(db: Any, shipment: Shipment) -> from typing import Optional
-Optional[str]:
+def _user_id_for_shipment(db: Any, shipment: Shipment) -> Optional[str]:
     """Resolve user_id for a shipment via order -> channel_account."""
     order = db.query(Order).filter(Order.id == shipment.order_id).first()
     if not order or not order.channel_account_id:
@@ -56,10 +54,7 @@ Optional[str]:
     return acc.user_id if acc else None
 
 
-def _get_selloship_credentials(db: Any, user_id: str) -> tuple[from typing import Optional
-Optional[str], from typing import Optional
-Optional[str], from typing import Optional
-Optional[str]]:
+def _get_selloship_credentials(db: Any, user_id: str) -> tuple[Optional[str], Optional[str], Optional[str]]:
     """Return (api_key, username, password) for Selloship from ProviderCredential or env."""
     from app.models import ProviderCredential
     from app.services.credentials import decrypt_token
@@ -85,8 +80,7 @@ Optional[str]]:
     return (key, user, pwd) if (key or (user and pwd)) else (None, None, None)
 
 
-async def sync_shipments(db: Any, user_id: from typing import Optional
-Optional[str] = None) -> dict:
+async def sync_shipments(db: Any, user_id: Optional[str] = None) -> dict:
     """
     Sync all active shipments. Delhivery: one get_tracking per shipment. Selloship: batch GET /waybillDetails (max 50 per call per Base.com spec).
     Returns { synced: int, errors: list }.
