@@ -1,97 +1,118 @@
 """
-Logistics analytics endpoints (RTO dashboard).
+Logistics analytics endpoints - RTO dashboard and courier performance
 """
-import re
-from collections import defaultdict
-from datetime import date, timedelta
-from typing import Optional
+import logging
+from datetime import datetime, timedelta, timezone
+from decimal import Decimal
+from typing import Any
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 
 from app.auth import get_current_user
 from app.database import get_db
-from app.models import User, Order, OrderFinance, FulfilmentStatus
+from app.models import User, Order, OrderFinance, FulfilmentStatus, Shipment, ShipmentStatus, ChannelAccount
 
-
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-PINCODE_RE = re.compile(r"(\b\d{6}\b)")
-
-
-def _extract_pincode(addr: Optional[str]) -> str:
-    if not addr:
-        return "unknown"
-    m = PINCODE_RE.search(addr)
-    return m.group(1) if m else "unknown"
+def _user_channel_account_ids(db: Session, user: User) -> list[str]:
+    return [ca.id for ca in db.query(ChannelAccount).filter(ChannelAccount.user_id == user.id).all()]
 
 
 @router.get("/rto")
-async def get_rto_dashboard(
-    days: int = Query(90, ge=1, le=365),
+async def get_logistics_rto(
+    days: int = Query(30, ge=1, le=365),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """
-    RTO metrics and loss by pincode (best-effort extraction from shipping_address).
+    Get RTO analytics by courier for logistics dashboard.
+    Returns courier-wise RTO percentage and loss amounts.
     """
-    end = date.today()
-    start = end - timedelta(days=days)
-
-    # Load orders + finance in window
-    rows = (
-        db.query(Order, OrderFinance)
-        .join(OrderFinance, OrderFinance.order_id == Order.id)
-        .filter(Order.user_id == current_user.id)
-        .filter(Order.created_at.isnot(None))
-        .filter(Order.created_at >= start)
-        .all()
-    )
-
-    by_pin = defaultdict(lambda: {"orders": 0, "rtoCount": 0, "lossAmount": 0.0})
-    total_orders = 0
-    total_rto = 0
-    total_loss = 0.0
-
-    for order, fin in rows:
-        pincode = _extract_pincode(getattr(order, "shipping_address", None))
-        by_pin[pincode]["orders"] += 1
-        total_orders += 1
-
-        is_rto = fin.fulfilment_status == FulfilmentStatus.RTO
-        if is_rto:
-            by_pin[pincode]["rtoCount"] += 1
-            total_rto += 1
-            loss = float(-fin.net_profit) if fin.net_profit and fin.net_profit < 0 else float(fin.total_expense or 0)
-            by_pin[pincode]["lossAmount"] += loss
-            total_loss += loss
-
-    out_rows = []
-    for pin, agg in by_pin.items():
-        orders = agg["orders"]
-        rto_count = agg["rtoCount"]
-        rto_rate = (rto_count / orders * 100) if orders else 0.0
-        out_rows.append(
-            {
-                "pincode": pin,
-                "orders": orders,
-                "rtoCount": rto_count,
-                "rtoRate": rto_rate,
-                "lossAmount": agg["lossAmount"],
-            }
+    account_ids = _user_channel_account_ids(db, current_user)
+    if not account_ids:
+        return {"couriers": []}
+    
+    # Calculate date range
+    end_date = datetime.now(timezone.utc)
+    start_date = end_date - timedelta(days=days)
+    
+    try:
+        # Base query for user's shipments
+        base_query = (
+            db.query(Shipment)
+            .join(Order, Shipment.order_id == Order.id)
+            .filter(Order.channel_account_id.in_(account_ids))
+            .filter(Shipment.created_at >= start_date)
+            .filter(Shipment.created_at <= end_date)
         )
-
-    out_rows.sort(key=lambda r: (r["lossAmount"], r["rtoCount"]), reverse=True)
-    top = out_rows[:20]
-
-    overall_rate = (total_rto / total_orders * 100) if total_orders else 0.0
-    return {
-        "rtoRate": overall_rate,
-        "totalLoss": total_loss,
-        "totalOrders": total_orders,
-        "rtoCount": total_rto,
-        "topPincodes": top,
-        "rows": out_rows,
-    }
+        
+        # Get total shipments by courier
+        total_by_courier = (
+            base_query.with_entities(
+                Shipment.courier_name,
+                func.count(Shipment.id).label('total_shipments')
+            )
+            .group_by(Shipment.courier_name)
+            .all()
+        )
+        
+        # Get RTO shipments by courier
+        rto_by_courier = (
+            base_query.filter(Shipment.status.in_([ShipmentStatus.RTO_INITIATED, ShipmentStatus.RTO_DONE]))
+            .with_entities(
+                Shipment.courier_name,
+                func.count(Shipment.id).label('rto_shipments'),
+                func.sum(Shipment.forward_cost + Shipment.reverse_cost).label('rto_loss')
+            )
+            .group_by(Shipment.courier_name)
+            .all()
+        )
+        
+        # Build courier stats
+        total_map = {courier: total for courier, total in total_by_courier}
+        rto_map = {}
+        for courier, rto_count, loss in rto_by_courier:
+            rto_map[courier] = {
+                'rto_count': rto_count,
+                'rto_loss': float(loss or 0)
+            }
+        
+        couriers = []
+        for courier in total_map.keys():
+            total = total_map[courier]
+            rto_data = rto_map.get(courier, {'rto_count': 0, 'rto_loss': 0})
+            rto_count = rto_data['rto_count']
+            rto_loss = rto_data['rto_loss']
+            
+            rto_percentage = (rto_count / total * 100) if total > 0 else 0
+            
+            couriers.append({
+                "courier": courier,
+                "total_shipments": total,
+                "rto_shipments": rto_count,
+                "rto_percentage": round(rto_percentage, 1),
+                "rto_loss": rto_loss,
+                "rto_loss_formatted": f"₹{rto_loss:,.0f}" if rto_loss > 0 else "₹0"
+            })
+        
+        # Sort by RTO percentage descending
+        couriers.sort(key=lambda x: x['rto_percentage'], reverse=True)
+        
+        return {
+            "period_days": days,
+            "couriers": couriers,
+            "summary": {
+                "total_shipments": sum(total_map.values()),
+                "total_rto": sum(rto_map.get(c, {'rto_count': 0})['rto_count'] for c in total_map.keys()),
+                "total_loss": sum(rto_map.get(c, {'rto_loss': 0})['rto_loss'] for c in total_map.keys())
+            }
+        }
+        
+    except Exception as e:
+        logger.exception("Logistics RTO analytics failed: %s", e)
+        raise HTTPException(status_code=500, detail="Failed to fetch RTO analytics")
 

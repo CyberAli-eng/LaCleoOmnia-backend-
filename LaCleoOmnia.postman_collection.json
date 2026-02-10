@@ -1,0 +1,506 @@
+{
+  "info": {
+    "name": "LaCleoOmnia API",
+    "description": "Complete e-commerce platform with Razorpay payment gateway integration and settlement automation",
+    "version": "1.0.0",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"your-email@example.com\",\n  \"password\": \"your-password\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login"
+            }
+          }
+        },
+        {
+          "name": "Refresh Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/refresh"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Integrations",
+      "item": [
+        {
+          "name": "Get Catalog",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/integrations/catalog"
+            }
+          }
+        },
+        {
+          "name": "Connect Razorpay",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"key_id\": \"{{razorpayKeyId}}\",\n  \"key_secret\": \"{{razorpayKeySecret}}\",\n  \"webhook_secret\": \"{{razorpayWebhookSecret}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/razorpay/connect"
+            }
+          }
+        },
+        {
+          "name": "Test Razorpay Connection",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/razorpay/status"
+            }
+          }
+        },
+        {
+          "name": "Sync Razorpay Payments",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"days\": 7\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/razorpay/sync/payments"
+            }
+          }
+        },
+        {
+          "name": "Sync Razorpay Settlements",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"days\": 7\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/razorpay/sync/settlements"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Orders",
+      "item": [
+        {
+          "name": "Get Orders",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/orders?page=1&limit=20"
+            }
+          }
+        },
+        {
+          "name": "Get Order Details",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/orders/{{orderId}}"
+            }
+          }
+        },
+        {
+          "name": "Get Order Finance",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/finance/orders/{{orderId}}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Razorpay Payments",
+      "item": [
+        {
+          "name": "Get Payments",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/razorpay/payments?days=7"
+            }
+          }
+        },
+        {
+          "name": "Get Payment Details",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/razorpay/payments/{{paymentId}}"
+            }
+          }
+        },
+        {
+          "name": "Reconcile Order",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"order_id\": \"{{orderId}}\",\n  \"amount\": 2999.00,\n  \"transaction_id\": \"{{transactionId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/razorpay/reconcile"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Settlements",
+      "item": [
+        {
+          "name": "Get Settlements",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/settlements?days=30"
+            }
+          }
+        },
+        {
+          "name": "Get Settlement Forecast",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/settlements/forecast?days=30"
+            }
+          }
+        },
+        {
+          "name": "Mark Settlement Overdue",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/api/settlements/{{settlementId}}/mark-overdue"
+            }
+          }
+        },
+        {
+          "name": "Sync Settlements",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"days\": 7\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/settlements/sync"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Finance",
+      "item": [
+        {
+          "name": "Get Finance Overview",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/finance/overview"
+            }
+          }
+        },
+        {
+          "name": "Get P&L Report",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/finance/pnl?start_date=2024-01-01&end_date=2024-01-31"
+            }
+          }
+        },
+        {
+          "name": "Get Settlement Summary",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/finance/settlements?days=30"
+            }
+          }
+        },
+        {
+          "name": "Create/Update Expense",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"order_id\": \"{{orderId}}\",\n  \"category\": \"gateway_fee\",\n  \"description\": \"Razorpay processing fee\",\n  \"amount\": 29.90\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/finance/expense"
+            }
+          }
+        },
+        {
+          "name": "Delete Expense",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/api/finance/expense/{{expenseId}}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "COD & Logistics",
+      "item": [
+        {
+          "name": "Sync COD Settlements",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"days\": 7,\n  \"providers\": [\"selloship\", \"delhivery\"]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/settlements/sync/cod"
+            }
+          }
+        },
+        {
+          "name": "Get Selloship Status",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/logistics/selloship/status"
+            }
+          }
+        },
+        {
+          "name": "Sync Shipments",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"order_id\": \"{{orderId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/logistics/sync"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Razorpay Webhooks",
+      "item": [
+        {
+          "name": "Payment Captured Webhook",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Razorpay-Signature",
+                "value": "{{webhookSignature}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{{webhookPayload}}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/webhooks/razorpay"
+            }
+          }
+        },
+        {
+          "name": "Settlement Processed Webhook",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Razorpay-Signature",
+                "value": "{{webhookSignature}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{{webhookPayload}}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/webhooks/razorpay"
+            }
+          }
+        },
+        {
+          "name": "Payout Processed Webhook",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Razorpay-Signature",
+                "value": "{{webhookSignature}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{{webhookPayload}}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/webhooks/razorpay"
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8000",
+      "description": "Base URL for the API"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "description": "JWT authentication token"
+    },
+    {
+      "key": "razorpayKeyId",
+      "value": "",
+      "description": "Razorpay Key ID"
+    },
+    {
+      "key": "razorpayKeySecret",
+      "value": "",
+      "description": "Razorpay Key Secret"
+    },
+    {
+      "key": "razorpayWebhookSecret",
+      "value": "",
+      "description": "Razorpay Webhook Secret"
+    },
+    {
+      "key": "orderId",
+      "value": "",
+      "description": "Order ID for testing"
+    },
+    {
+      "key": "paymentId",
+      "value": "",
+      "description": "Payment ID for testing"
+    },
+    {
+      "key": "transactionId",
+      "value": "",
+      "description": "Transaction ID for reconciliation"
+    },
+    {
+      "key": "settlementId",
+      "value": "",
+      "description": "Settlement ID for marking overdue"
+    },
+    {
+      "key": "expenseId",
+      "value": "",
+      "description": "Expense ID for management"
+    },
+    {
+      "key": "webhookSignature",
+      "value": "",
+      "description": "Razorpay webhook signature for testing"
+    },
+    {
+      "key": "webhookPayload",
+      "value": "",
+      "description": "Sample webhook payload for testing"
+    }
+  ]
+}

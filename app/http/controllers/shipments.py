@@ -181,16 +181,65 @@ async def generate_label(
 
 @router.post("/sync")
 async def sync_shipments_endpoint(
+    order_id: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """Sync all active shipments (Delhivery + Selloship) for current user. Uses user API keys or env fallback."""
-    result = await sync_shipments(db, user_id=current_user.id)
-    return {
-        "message": f"Synced {result['synced']} shipments",
-        "synced": result["synced"],
-        "errors": result.get("errors", [])[:20],
-    }
+    if order_id:
+        # Sync specific order's shipment
+        account_ids = _user_channel_account_ids(db, current_user)
+        order = db.query(Order).filter(Order.id == order_id).first()
+        if not order or (order.channel_account_id not in account_ids):
+            raise HTTPException(status_code=404, detail="Order not found")
+        
+        shipment = db.query(Shipment).filter(Shipment.order_id == order_id).first()
+        if not shipment:
+            raise HTTPException(status_code=404, detail="Shipment not found")
+        
+        # Sync single shipment
+        courier_raw = (shipment.courier_name or "").strip().lower()
+        if "selloship" in courier_raw:
+            from app.services.selloship_service import get_selloship_client
+            api_key, username, password = _get_selloship_credentials(db, str(current_user.id))
+            if not api_key and not (username and password):
+                raise HTTPException(status_code=400, detail="Selloship not connected")
+            client = get_selloship_client(api_key=api_key, username=username, password=password)
+            try:
+                result = await client.get_tracking(shipment.awb_number or "")
+                # Update shipment with new status
+                if not result.get("error"):
+                    raw_status = result.get("raw_status") or result.get("status")
+                    internal_status = result.get("status")
+                    if isinstance(internal_status, ShipmentStatus):
+                        shipment.status = internal_status
+                    shipment.last_synced_at = datetime.now(timezone.utc)
+                    db.flush()
+                    # Trigger profit recompute
+                    from app.services.profit_calculator import compute_profit_for_order
+                    compute_profit_for_order(db, order_id)
+                    db.commit()
+                return {
+                    "message": f"Shipment {shipment.awb_number} synced successfully",
+                    "awb": shipment.awb_number,
+                    "status": raw_status,
+                    "last_sync": shipment.last_synced_at.isoformat() if shipment.last_synced_at else None,
+                }
+            except Exception as e:
+                logger.warning("Failed to sync Selloship shipment %s: %s", shipment.awb_number, e)
+                raise HTTPException(status_code=500, detail=f"Sync failed: {str(e)}")
+        else:
+            # Fallback to full sync for other couriers
+            result = await sync_shipments(db, user_id=current_user.id)
+            return result
+    else:
+        # Full sync for all shipments
+        result = await sync_shipments(db, user_id=current_user.id)
+        return {
+            "message": f"Synced {result['synced']} shipments",
+            "synced": result["synced"],
+            "errors": result.get("errors", [])[:20],
+        }
 
 
 @router.get("/{shipment_id}")

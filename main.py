@@ -18,6 +18,8 @@ from routes.api import register_routes
 from app.database import engine, Base, get_db, SessionLocal
 from app.config import settings
 from app.services.shopify_oauth import ShopifyOAuthService
+from app.services.settlement_worker import start_settlement_worker
+from app.services.razorpay_service import get_razorpay_service
 from app.services.shipment_sync import sync_shipments
 from app.services.ad_spend_sync import sync_ad_spend_for_date, get_first_user_id_for_sync
 from app.services.credentials import encrypt_token, decrypt_token
@@ -260,6 +262,12 @@ async def _ad_spend_sync_loop() -> None:
                 db.close()
         # Next run: next day 00:30 IST
         await asyncio.sleep(_seconds_until_0030_ist() + 60)
+
+
+@app.on_event("startup")
+async def startup_settlement_worker() -> None:
+    """Start settlement automation worker (daily sync at 2 AM IST)"""
+    start_settlement_worker()
 
 
 @app.on_event("startup")

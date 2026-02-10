@@ -459,7 +459,40 @@ async def get_provider_status(
     """Return connection status for credential-based providers (e.g. delhivery, meta_ads, google_ads). Driven by catalog statusEndpoint."""
     if provider_id not in ALLOWED_CREDENTIAL_PROVIDERS:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unknown provider")
-    return _get_provider_credential_status(db, current_user.id, provider_id)
+    
+    base_status = _get_provider_credential_status(db, current_user.id, provider_id)
+    
+    # Enhanced status for Selloship with active AWBs and last sync
+    if provider_id == "selloship" and base_status.get("connected"):
+        try:
+            from app.models import Shipment, ShipmentStatus
+            from datetime import datetime, timezone
+            
+            # Count active Selloship AWBs (not delivered/rto_done/lost)
+            active_awbs = db.query(Shipment).filter(
+                Shipment.courier_name.ilike("%selloship%"),
+                Shipment.status.notin_([ShipmentStatus.DELIVERED, ShipmentStatus.RTO_DONE, ShipmentStatus.LOST])
+            ).count()
+            
+            # Get last sync time from Selloship shipments
+            last_sync_result = db.query(Shipment).filter(
+                Shipment.courier_name.ilike("%selloship%")
+            ).order_by(Shipment.last_synced_at.desc()).first()
+            
+            last_sync = None
+            if last_sync_result and last_sync_result.last_synced_at:
+                last_sync = last_sync_result.last_synced_at.isoformat()
+            
+            return {
+                **base_status,
+                "active_awbs": active_awbs,
+                "last_sync": last_sync,
+            }
+        except Exception as e:
+            logger.warning("Failed to get enhanced Selloship status: %s", e)
+            return base_status
+    
+    return base_status
 
 
 def _ensure_channel_account_for_marketplace(
@@ -1257,3 +1290,76 @@ async def shopify_sync(
         "total_orders_fetched": len(raw_orders),
         "message": message,
     }
+
+
+@router.get("/providers/selloship/test")
+async def test_selloship_connection(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Test Selloship connection: validate token and fetch sample waybill status.
+    Returns token validity, sample status, and any errors.
+    """
+    from app.services.selloship_service import get_selloship_client, fetch_selloship_token
+    from app.services.shipment_sync import _get_selloship_credentials
+    
+    # Get user's Selloship credentials
+    api_key, username, password = _get_selloship_credentials(db, str(current_user.id))
+    
+    if not api_key and not (username and password):
+        return {
+            "valid": False,
+            "error": "Selloship not connected. Please connect your Selloship account first.",
+            "token_valid": False,
+            "sample_status": None,
+        }
+    
+    try:
+        # Test authentication
+        client = get_selloship_client(api_key=api_key, username=username, password=password)
+        
+        # If using username/password, test token fetch
+        if username and password:
+            token = await fetch_selloship_token(username, password)
+            if not token:
+                return {
+                    "valid": False,
+                    "error": "Invalid Selloship username or password.",
+                    "token_valid": False,
+                    "sample_status": None,
+                }
+        
+        # Test API call - try to get a sample waybill status
+        # Use a dummy AWB to test the API endpoint structure
+        test_result = await client.get_tracking("TEST123456")
+        
+        # Check if we got a proper response structure (even for non-existent AWB)
+        if "waybill" in test_result and "status" in test_result:
+            return {
+                "valid": True,
+                "error": None,
+                "token_valid": True,
+                "sample_status": {
+                    "waybill": test_result["waybill"],
+                    "status": test_result["status"],
+                    "raw_status": test_result.get("raw_status"),
+                    "message": "API connection successful. This was a test with dummy AWB.",
+                },
+            }
+        else:
+            return {
+                "valid": False,
+                "error": "API response format unexpected",
+                "token_valid": True,
+                "sample_status": None,
+            }
+            
+    except Exception as e:
+        logger.exception("Selloship test connection failed: %s", e)
+        return {
+            "valid": False,
+            "error": f"Connection test failed: {str(e)}",
+            "token_valid": False,
+            "sample_status": None,
+        }

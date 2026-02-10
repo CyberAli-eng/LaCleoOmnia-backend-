@@ -157,7 +157,8 @@
             "method": "POST",
             "header": [],
             "url": "{{base_url}}/api/orders/{{order_id}}/confirm"
-          }
+          },
+          "description": "[LEGACY] Not used in current Shopify → Shipment → Finance lifecycle. Kept for backward compatibility only."
         },
         {
           "name": "POST Pack order",

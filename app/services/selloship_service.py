@@ -20,18 +20,24 @@ logger = logging.getLogger(__name__)
 
 # Base.com Shipper Integration: currentStatus values (and common variants) → internal ShipmentStatus
 SELLOSHIP_TO_INTERNAL = {
-    "delivered": ShipmentStatus.DELIVERED,
+    "PICKUP_PENDING": ShipmentStatus.IN_TRANSIT,
+    "IN_TRANSIT": ShipmentStatus.IN_TRANSIT,
+    "DELIVERED": ShipmentStatus.DELIVERED,
+    "RTO": ShipmentStatus.RTO_INITIATED,
+    "RTO_DELIVERED": ShipmentStatus.RTO_DONE,
+    "CANCELLED": ShipmentStatus.LOST,  # Map cancelled to LOST as per business logic
+    "LOST": ShipmentStatus.LOST,
+    # Common variants
+    "pickup_pending": ShipmentStatus.IN_TRANSIT,
     "in_transit": ShipmentStatus.IN_TRANSIT,
     "in transit": ShipmentStatus.IN_TRANSIT,
-    "rto": ShipmentStatus.RTO_DONE,
-    "rto_done": ShipmentStatus.RTO_DONE,
-    "rto done": ShipmentStatus.RTO_DONE,
-    "undelivered": ShipmentStatus.RTO_INITIATED,
-    "rto_initiated": ShipmentStatus.RTO_INITIATED,
-    "rto initiated": ShipmentStatus.RTO_INITIATED,
+    "delivered": ShipmentStatus.DELIVERED,
+    "rto": ShipmentStatus.RTO_INITIATED,
+    "rto_delivered": ShipmentStatus.RTO_DONE,
+    "rto delivered": ShipmentStatus.RTO_DONE,
+    "cancelled": ShipmentStatus.LOST,
+    "canceled": ShipmentStatus.LOST,
     "lost": ShipmentStatus.LOST,
-    "cancelled": ShipmentStatus.RTO_DONE,
-    "canceled": ShipmentStatus.RTO_DONE,
     "dispatched": ShipmentStatus.SHIPPED,
     "shipped": ShipmentStatus.SHIPPED,
     "pickup": ShipmentStatus.IN_TRANSIT,
@@ -194,13 +200,13 @@ def get_selloship_client(
 ) -> "SelloshipService":
     """
     Return a Selloship client. Uses Base.com Shipper Integration flow.
-    - If username + password: POST to auth_url (or SELLOSHIP_AUTH_URL) to get token, then use Bearer.
-    - Else use api_key (or SELLOSHIP_API_KEY) as Bearer token.
+    - If username + password: POST to auth_url (or SELLOSHIP_AUTH_URL) to get token, then use token.
+    - Else use api_key (or SELLOSHIP_API_KEY) as token.
     """
     key = (api_key or getattr(settings, "SELLOSHIP_API_KEY", None) or "").strip() or None
     user = (username or getattr(settings, "SELLOSHIP_USERNAME", None) or "").strip() or None
     pwd = (password or getattr(settings, "SELLOSHIP_PASSWORD", None) or "").strip() or None
-    base = getattr(settings, "SELLOSHIP_API_BASE_URL", "https://api.selloship.com")
+    base = getattr(settings, "SELLOSHIP_API_BASE_URL", "https://selloship.com/api/lock_actvs/channels")
     url = (auth_url or getattr(settings, "SELLOSHIP_AUTH_URL", None) or "").strip() or None
     return SelloshipService(api_key=key or "", base_url=base, username=user, password=pwd, auth_url=url)
 
@@ -219,7 +225,7 @@ class SelloshipService:
     def __init__(
         self,
         api_key: str = "",
-        base_url: str = "https://api.selloship.com",
+        base_url: str = "https://selloship.com/api/lock_actvs/channels",
         username: Optional[str] = None,
         password: Optional[str] = None,
         auth_url: Optional[str] = None,
@@ -255,22 +261,22 @@ class SelloshipService:
         return None
 
     async def _get_headers(self) -> dict:
-        """Authorization header: Bearer token from /authToken or api_key. Content-Type application/json."""
+        """Authorization header: token XXXXX (not Bearer) from /authToken or api_key. Content-Type application/json."""
         headers = {"Content-Type": "application/json"}
         if self._has_token_auth():
             now = time.time()
             if SelloshipService._token_cache is not None:
                 tok, exp = SelloshipService._token_cache
                 if exp > now:
-                    headers["Authorization"] = f"Bearer {tok}"
+                    headers["Authorization"] = f"token {tok}"
                     return headers
             token = await self._get_auth_token()
             if token:
                 SelloshipService._token_cache = (token, now + self.TOKEN_CACHE_TTL_SEC)
-                headers["Authorization"] = f"Bearer {token}"
+                headers["Authorization"] = f"token {token}"
             return headers
         if self.api_key:
-            headers["Authorization"] = f"Bearer {self.api_key}"
+            headers["Authorization"] = f"token {self.api_key}"
         return headers
 
     def _parse_waybill_detail(self, detail: dict, awb_fallback: str) -> dict:

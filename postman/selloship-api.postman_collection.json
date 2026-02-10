@@ -1,0 +1,286 @@
+{
+    "info": {
+      "name": "Selloship / Base Logistics API",
+      "description": "Authentication, Waybill, Tracking, Cancel, Manifest APIs",
+      "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+  
+    "variable": [
+      {
+        "key": "base_url",
+        "value": "https://selloship.com/api/lock_actvs/channels"
+      },
+      {
+        "key": "username",
+        "value": "YOUR_EMAIL"
+      },
+      {
+        "key": "password",
+        "value": "YOUR_PASSWORD"
+      },
+      {
+        "key": "token",
+        "value": ""
+      },
+      {
+        "key": "awb",
+        "value": ""
+      }
+    ],
+  
+    "item": [
+  
+      {
+        "name": "1. Authentication",
+  
+        "item": [
+          {
+            "name": "Get Auth Token",
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "let json = pm.response.json();",
+                    "if (json.token) {",
+                    "pm.collectionVariables.set('token', json.token.replace('token ', ''));",
+                    "}"
+                  ]
+                }
+              }
+            ],
+  
+            "request": {
+              "method": "POST",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+  
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\"\n}"
+              },
+  
+              "url": "{{base_url}}/authToken"
+            }
+          }
+        ]
+      },
+  
+  
+  
+      {
+        "name": "2. Generate Waybill (Create Shipment)",
+  
+        "item": [
+  
+          {
+            "name": "Create AWB",
+  
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "let json = pm.response.json();",
+                    "if (json.waybill) {",
+                    "pm.collectionVariables.set('awb', json.waybill);",
+                    "}"
+                  ]
+                }
+              }
+            ],
+  
+            "request": {
+              "method": "POST",
+  
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Authorization",
+                  "value": "Bearer {{token}}"
+                }
+              ],
+  
+              "body": {
+                "mode": "raw",
+  
+                "raw": "{\n  \"serviceType\": \"Standard\",\n  \"returnShipmentFlag\": false,\n\n  \"Shipment\": {\n    \"code\": \"SHIP001\",\n    \"orderCode\": \"ORDER001\",\n    \"channelCode\": \"SHOPIFY\",\n    \"channelName\": \"Velomora\",\n    \"invoiceCode\": \"INV001\",\n    \"orderDate\": \"10-Feb-2026 00:00:00\",\n    \"fullFilllmentTat\": \"12-Feb-2026 00:00:00\",\n    \"weight\": \"500\",\n    \"length\": \"30\",\n    \"height\": \"10\",\n    \"breadth\": \"15\",\n    \"numberOfBoxes\": \"1\",\n\n    \"items\": [\n      {\n        \"name\": \"Nipple Cover\",\n        \"description\": \"Medical Grade\",\n        \"quantity\": 1,\n        \"skuCode\": \"SKU001\",\n        \"itemPrice\": 499\n      }\n    ]\n  },\n\n  \"deliveryAddressDetails\": {\n    \"name\": \"Test User\",\n    \"email\": \"test@test.com\",\n    \"phone\": \"9999999999\",\n    \"address1\": \"Test Street\",\n    \"address2\": \"Area\",\n    \"pincode\": \"411037\",\n    \"city\": \"Pune\",\n    \"state\": \"Maharashtra\",\n    \"country\": \"India\",\n    \"stateCode\": \"MH\",\n    \"countryCode\": \"IN\"\n  },\n\n  \"pickupAddressId\": \"PICKUP001\",\n\n  \"pickupAddressDetails\": {\n    \"name\": \"Velomora\",\n    \"phone\": \"8888888888\",\n    \"address1\": \"Warehouse\",\n    \"pincode\": \"201301\",\n    \"city\": \"Noida\",\n    \"state\": \"UP\",\n    \"country\": \"India\",\n    \"stateCode\": \"UP\",\n    \"countryCode\": \"IN\"\n  },\n\n  \"returnAddressId\": \"RETURN001\",\n\n  \"returnAddressDetails\": {\n    \"name\": \"Velomora Returns\",\n    \"phone\": \"7777777777\",\n    \"address1\": \"Return Hub\",\n    \"pincode\": \"201301\",\n    \"city\": \"Noida\",\n    \"state\": \"UP\",\n    \"country\": \"India\",\n    \"stateCode\": \"UP\",\n    \"countryCode\": \"IN\"\n  },\n\n  \"currencyCode\": \"INR\",\n  \"paymentMode\": \"PREPAID\",\n  \"totalAmount\": \"499\",\n  \"collectableAmount\": \"0\"\n}"
+              },
+  
+              "url": "{{base_url}}/waybill"
+            }
+          }
+  
+        ]
+      },
+  
+  
+  
+  
+      {
+        "name": "3. Track Shipment",
+  
+        "item": [
+  
+          {
+            "name": "Get Waybill Status",
+  
+            "request": {
+  
+              "method": "GET",
+  
+              "header": [
+                {
+                  "key": "Authorization",
+                  "value": "Bearer {{token}}"
+                }
+              ],
+  
+              "url": {
+                "raw": "{{base_url}}/waybillDetails?waybills=\"{{awb}}\"",
+                "host": [
+                  "{{base_url}}"
+                ],
+                "path": [
+                  "waybillDetails"
+                ],
+                "query": [
+                  {
+                    "key": "waybills",
+                    "value": "\"{{awb}}\""
+                  }
+                ]
+              }
+            }
+          }
+  
+        ]
+      },
+  
+  
+  
+  
+      {
+        "name": "4. Cancel Waybill",
+  
+        "item": [
+  
+          {
+            "name": "Cancel Shipment",
+  
+            "request": {
+  
+              "method": "POST",
+  
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Authorization",
+                  "value": "Bearer {{token}}"
+                }
+              ],
+  
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"waybill\": \"{{awb}}\"\n}"
+              },
+  
+              "url": "{{base_url}}/cancel"
+            }
+          }
+  
+        ]
+      },
+  
+  
+  
+  
+      {
+        "name": "5. Generate Manifest",
+  
+        "item": [
+  
+          {
+            "name": "Create Manifest",
+  
+            "request": {
+  
+              "method": "POST",
+  
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Authorization",
+                  "value": "Bearer {{token}}"
+                }
+              ],
+  
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"awbNumbers\": [\"{{awb}}\"]\n}"
+              },
+  
+              "url": "{{base_url}}/manifest"
+            }
+          }
+  
+        ]
+      },
+  
+  
+  
+  
+      {
+        "name": "6. Update Waybill",
+  
+        "item": [
+  
+          {
+            "name": "Update Shipment",
+  
+            "request": {
+  
+              "method": "POST",
+  
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Authorization",
+                  "value": "Bearer {{token}}"
+                }
+              ],
+  
+              "body": {
+                "mode": "raw",
+  
+                "raw": "{\n  \"Shipment\": {\n    \"returnShipmentFlag\": false,\n    \"waybill\": \"{{awb}}\",\n    \"code\": \"SHIP001\",\n    \"SaleOrderCode\": \"ORDER001\",\n    \"orderDate\": \"10-Feb-2026 00:00:00\",\n    \"weight\": \"500\",\n    \"length\": \"30\",\n    \"height\": \"10\",\n    \"breadth\": \"15\",\n    \"numberOfBoxes\": \"1\"\n  },\n  \"source\": \"Base\"\n}"
+              },
+  
+              "url": "{{base_url}}/waybill/update"
+            }
+          }
+  
+        ]
+      }
+  
+    ]
+  }
+  
