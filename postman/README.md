@@ -9,7 +9,7 @@ All APIs are stored in a **structural manner** (like the reference in your scree
 | Environment | When to use | `base_url` |
 |-------------|-------------|------------|
 | **LaCleoOmnia – Local** | Development on your machine | `http://localhost:8000` |
-| **LaCleoOmnia – Production** | Deployed backend (e.g. Render) | `https://lacleoomnia-api.onrender.com/` |
+| **LaCleoOmnia – Production** | Deployed backend (e.g. Render) | `https://lacleoomnia-api.onrender.com` |
 
 **In Postman:** Use the **environment** dropdown (top right). Choose **LaCleoOmnia – Local** when calling **localhost**; choose **LaCleoOmnia – Production** when calling the live API. Every request uses `{{base_url}}`, so switching the environment switches the host without editing requests.
 
@@ -27,9 +27,14 @@ All APIs are stored in a **structural manner** (like the reference in your scree
 
 | Variable   | Description |
 |-----------|-------------|
-| `base_url` | API base URL (no trailing slash). Set by environment: Local = `http://localhost:8000`, Production = `https://lacleoomnia.onrender.com`. |
+| `base_url` | API base URL (no trailing slash). Set by environment: Local = `http://localhost:8000`, Production = `https://lacleoomnia-api.onrender.com`. |
 | `token`   | JWT from **Auth → POST Login**. Auto-saved by the collection script. |
 | `order_id`| Use in Orders / Shipments requests; set from a list-orders response. |
+| `settlement_id` | Use in Finance → Update Settlement. |
+| `expense_id` | Use in Finance → Update/Delete Manual Expense. |
+| `rule_id` | Use in Finance → Update Expense Rule. |
+| `customer_id` | Use in Finance → Customer Risk. |
+| `account_id` | Use in Sync endpoints (`/api/sync/orders/{account_id}` etc.). |
 | `user_id` | Use in Users PATCH/DELETE. |
 | `event_id`| Use in Webhooks → Retry event. |
 

@@ -513,6 +513,10 @@ class SettlementStatus(str, enum.Enum):
     SETTLED = "SETTLED"
     OVERDUE = "OVERDUE"
 
+class ExpenseRuleValueType(str, enum.Enum):
+    PERCENT = "PERCENT"
+    FIXED = "FIXED"
+
 class RiskTag(str, enum.Enum):
     SAFE = "SAFE"
     MEDIUM = "MEDIUM"
@@ -589,6 +593,38 @@ class OrderSettlement(Base):
     
     order = relationship("Order", backref=backref("settlements"))
     order_finance = relationship("OrderFinance", back_populates="settlements")
+
+class ExpenseRule(Base):
+    """
+    Versioned (date-based) expense rules per user.
+    Used to compute gateway/COD/packaging fees by order date.
+    """
+    __tablename__ = "expense_rules"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column("user_id", String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    # Examples: GATEWAY_FEE, COD_FEE, PACKAGING_FEE
+    type = Column("type", String, nullable=False, index=True)
+    name = Column("name", String, nullable=False)
+
+    # If value_type=PERCENT, `value` is percent (e.g. 2.0 means 2%).
+    # If value_type=FIXED, `value` is a fixed INR amount.
+    value = Column("value", Numeric(12, 4), default=0, nullable=False)
+    # Use non-native enum so DB stores VARCHAR (safe for idempotent migrations)
+    value_type = Column("value_type", SQLEnum(ExpenseRuleValueType, native_enum=False), nullable=False)
+
+    effective_from = Column("effective_from", Date, nullable=False, index=True)
+    effective_to = Column("effective_to", Date, nullable=True, index=True)
+    platform = Column("platform", String, nullable=True, index=True)  # optional: shopify/amazon/...
+
+    created_at = Column("created_at", DateTime, server_default=func.now())
+    updated_at = Column("updated_at", DateTime, server_default=func.now(), onupdate=func.now())
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "type", "effective_from", "platform", name="uq_expense_rules_user_type_from_platform"),
+    )
+    user = relationship("User")
 
 
 class CustomerRisk(Base):

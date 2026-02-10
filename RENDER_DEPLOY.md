@@ -71,7 +71,9 @@ Step-by-step guide to deploy this FastAPI backend on [Render](https://render.com
    | `JWT_SECRET` | *(long random string)* | e.g. `openssl rand -hex 32` |
    | `ENCRYPTION_KEY` | *(32 characters)* | For encrypting tokens (e.g. credentials) |
    | `WEBHOOK_BASE_URL` | `https://YOUR-SERVICE-NAME.onrender.com` | Your Render API URL (no trailing slash) |
-   | `ALLOWED_ORIGINS` | `https://your-frontend.vercel.app` | Comma-separated frontend origins |
+  | `ALLOWED_ORIGINS` | `https://your-frontend.vercel.app` | **Required**. Comma-separated frontend origins (no trailing slashes) |
+  | `FRONTEND_URL` | `https://your-frontend.vercel.app` | Required for password reset + OAuth redirects |
+  | `CORS_ORIGIN_REGEX` | `https://.*\\.vercel\\.app` | Optional. Allow preview deployments if you use them |
 
 3. Optional but useful:
    - `LOG_LEVEL` = `INFO`
@@ -107,6 +109,7 @@ Step-by-step guide to deploy this FastAPI backend on [Render](https://render.com
   - App URL: `https://YOUR-SERVICE-NAME.onrender.com/auth/shopify`
   - Redirect URL: `https://YOUR-SERVICE-NAME.onrender.com/auth/shopify/callback`
 - **Frontend:** Point your frontend’s API base URL to `https://YOUR-SERVICE-NAME.onrender.com` and set `ALLOWED_ORIGINS` to your frontend origin(s).
+  - Frontend env: `NEXT_PUBLIC_API_BASE_URL=https://YOUR-SERVICE-NAME.onrender.com`
 
 ---
 

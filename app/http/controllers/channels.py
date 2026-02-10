@@ -286,6 +286,12 @@ async def shopify_oauth_install(
                 except Exception:
                     pass
             if not base_url:
+                # Never fall back to localhost in production (would break OAuth installs).
+                if settings.IS_PRODUCTION:
+                    raise HTTPException(
+                        status_code=500,
+                        detail="WEBHOOK_BASE_URL is not configured. Set WEBHOOK_BASE_URL to your public API origin (e.g. https://your-api.onrender.com).",
+                    )
                 base_url = "http://localhost:8000"
             redirect_uri = f"{base_url}/auth/shopify/callback"
         else:

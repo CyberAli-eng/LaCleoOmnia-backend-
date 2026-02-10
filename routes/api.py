@@ -13,6 +13,7 @@ from app.http.controllers import (
     products,
     warehouses,
     shipments,
+    logistics,
     sync,
     config,
     webhooks,
@@ -45,6 +46,7 @@ def register_routes(app: FastAPI, settings) -> None:
     app.include_router(products.router, prefix="/api/products", tags=["products"])
     app.include_router(warehouses.router, prefix="/api/warehouses", tags=["warehouses"])
     app.include_router(shipments.router, prefix="/api/shipments", tags=["shipments"])
+    app.include_router(logistics.router, prefix="/api/logistics", tags=["logistics"])
     app.include_router(sync.router, prefix="/api/sync", tags=["sync"])
     app.include_router(config.router, prefix="/api/config", tags=["config"])
     app.include_router(webhooks.router, prefix="/api/webhooks", tags=["webhooks"])

@@ -75,11 +75,11 @@ def _get_integration_catalog() -> dict:
                             {"key": "apiKey", "label": "API Key (Client ID)", "type": "text", "placeholder": "From Shopify Partner app"},
                             {"key": "apiSecret", "label": "API Secret (Client secret)", "type": "password", "placeholder": "From Shopify Partner app"}
                         ],
-                        "setupGuide": "1) Create app in Shopify → Configuration. 2) App URL: https://la-cleo-omnia-frontend.vercel.app/auth/shopify 3) Allowed redirection URL: https://lacleoomnia-api.onrender.com/auth/shopify/callback 4) Copy Client ID & secret → paste in this card → Save. 5) Connect via OAuth or Install from Shopify.",
+                        "setupGuide": "1) Create app in Shopify → Configuration. 2) App URL: https://YOUR_FRONTEND_DOMAIN/auth/shopify 3) Allowed redirection URL(s): https://YOUR_API_DOMAIN/auth/shopify/callback (no trailing slash) 4) Copy Client ID & secret → paste in this card → Save. 5) Connect via OAuth.",
                         "setupSteps": [
                             {"step": 1, "title": "Create app", "description": "Shopify Admin → Settings → Apps → Develop apps → Create an app. Name it (e.g. LaCleoOmnia)."},
-                            {"step": 2, "title": "App URL", "description": "App → Configuration. App URL = https://la-cleo-omnia-frontend.vercel.app/auth/shopify (no trailing slash)."},
-                            {"step": 3, "title": "Redirect URL", "description": "Same page. Allowed redirection URL(s) = https://lacleoomnia-api.onrender.com/auth/shopify/callback (no trailing slash)."},
+                            {"step": 2, "title": "App URL", "description": "App → Configuration. App URL = https://YOUR_FRONTEND_DOMAIN/auth/shopify (no trailing slash)."},
+                            {"step": 3, "title": "Redirect URL", "description": "Same page. Allowed redirection URL(s) = https://YOUR_API_DOMAIN/auth/shopify/callback (no trailing slash)."},
                             {"step": 4, "title": "Paste credentials here", "description": "Shopify → Client credentials. Copy Client ID & secret. Here: pencil or Edit app credentials → paste → Save."},
                             {"step": 5, "title": "Connect", "description": "Click Connect via OAuth, enter store (e.g. mystore.myshopify.com), then approve in Shopify."},
                         ],

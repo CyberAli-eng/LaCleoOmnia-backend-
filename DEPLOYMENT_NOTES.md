@@ -15,14 +15,15 @@ Set these in your Render dashboard:
    - `AUTH_ALGORITHM` - (Optional) Defaults to "HS256"
 
 4. **CORS** (Auto-configured)
-   - `ALLOWED_ORIGINS` - Comma-separated list of allowed origins (optional, Vercel is auto-allowed via regex)
+   - `ALLOWED_ORIGINS` - **REQUIRED in production**. Comma-separated list of allowed frontend origins (no trailing slashes).
+   - Optional: `CORS_ORIGIN_REGEX` if you want to allow preview deployments (e.g. `https://.*\\.vercel\\.app`)
 
 5. **Server** (Auto-configured)
    - `HOST` - Auto-detected (0.0.0.0 for cloud, 127.0.0.1 for local)
    - `PORT` - (Optional) Defaults to 8000, Render sets this automatically
 
 6. **Webhooks** (if using)
-   - `WEBHOOK_BASE_URL` - Your Render backend URL (e.g., https://lacleoomnia.onrender.com)
+   - `WEBHOOK_BASE_URL` - Your Render backend URL (e.g., https://lacleoomnia-api.onrender.com)
    - `ENCRYPTION_KEY` - 32-character key for credential encryption
 
 7. **Logging**
@@ -94,7 +95,7 @@ If you get 500/502 on inventory: check scopes (`read_products`, `read_inventory`
 
 - **Receiver**: `POST /api/webhooks/shopify` — **public** (no JWT). Shopify sends `X-Shopify-Hmac-Sha256`, `X-Shopify-Topic`, `X-Shopify-Shop-Domain`. Body is verified with `SHOPIFY_API_SECRET`; events are persisted to `webhook_events`, then processed by topic.
 - **Topics**: `orders/create`, `orders/updated`, `orders/cancelled`, `refunds/create`, `inventory_levels/update`, `products/update`. Orders upsert + profit recompute; inventory sync on inventory/products.
-- **Register**: Set `WEBHOOK_BASE_URL` to your API base (e.g. `https://lacleoomnia.onrender.com`). After connecting Shopify, call `POST /api/integrations/shopify/register-webhooks` (with JWT) to register all topics with Shopify. Or webhooks are auto-registered on OAuth in channels flow.
+- **Register**: Set `WEBHOOK_BASE_URL` to your API base (e.g. `https://lacleoomnia-api.onrender.com`). After connecting Shopify, call `POST /api/integrations/shopify/register-webhooks` (with JWT) to register all topics with Shopify. Or webhooks are auto-registered on OAuth in channels flow.
 - **Events**: `GET /api/webhooks?source=shopify` returns persisted events (processed_at, error).
 
 ## User-provided credentials (Integrations UI)
@@ -132,16 +133,17 @@ python seed.py
 ## CORS Configuration
 
 The backend automatically allows:
-- All Vercel deployments (https://*.vercel.app)
 - Localhost for development
 - Any origins specified in `ALLOWED_ORIGINS` env var
+
+In production, only `ALLOWED_ORIGINS` is used unless you explicitly set `CORS_ORIGIN_REGEX`.
 
 ## Automatic Detection
 
 The system automatically detects:
 - ✅ **Cloud Platform**: Render, Vercel, Heroku, Railway
 - ✅ **Environment**: DEV vs PROD based on `ENV` variable
-- ✅ **CORS Origins**: Localhost for dev, Vercel pattern for prod
+- ✅ **CORS Origins**: Localhost for dev; production uses `ALLOWED_ORIGINS` (and optional `CORS_ORIGIN_REGEX` if set)
 - ✅ **API Docs**: Enabled in dev, disabled in prod
 - ✅ **Logging**: DEBUG in dev, INFO in prod
 - ✅ **Auto-reload**: Enabled in dev, disabled in prod

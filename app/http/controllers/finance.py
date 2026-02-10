@@ -5,12 +5,25 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from typing import Optional, List
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 from pydantic import BaseModel
 from typing import Optional
 
 from app.database import get_db
-from app.models import User, Order, OrderFinance, OrderExpense, OrderSettlement, CustomerRisk, ExpenseType, SettlementStatus
+from app.models import (
+    User,
+    Order,
+    OrderFinance,
+    OrderExpense,
+    OrderSettlement,
+    CustomerRisk,
+    ExpenseType,
+    SettlementStatus,
+    ExpenseSource,
+    ExpenseRule,
+    ExpenseRuleValueType,
+    FulfilmentStatus,
+)
 from app.auth import get_current_user
 from app.services.finance_engine import compute_order_finance, get_finance_overview
 from app.services.expense_config import add_manual_expense, get_expense_summary
@@ -42,6 +55,24 @@ class SettlementUpdate(BaseModel):
     actual_date: Optional[date] = None
     reference_id: Optional[str] = None
     notes: Optional[str] = None
+
+
+class ExpenseRuleCreate(BaseModel):
+    type: str  # GATEWAY_FEE | COD_FEE | PACKAGING_FEE
+    name: str
+    value: float
+    valueType: ExpenseRuleValueType
+    effectiveFrom: date
+    effectiveTo: Optional[date] = None
+    platform: Optional[str] = None
+
+
+class ExpenseRuleUpdate(BaseModel):
+    value: Optional[float] = None
+    valueType: Optional[ExpenseRuleValueType] = None
+    effectiveFrom: Optional[date] = None
+    effectiveTo: Optional[date] = None
+    platform: Optional[str] = None
 
 
 # Finance Overview
@@ -527,6 +558,215 @@ async def add_expense(
     compute_order_finance(db, expense.order_id)
     
     return {"id": new_expense.id, "message": "Expense added successfully"}
+
+
+# Frontend-friendly single-expense endpoints (ExpenseEditor)
+def _map_ui_category_to_expense_type(category: str) -> ExpenseType:
+    c = (category or "").strip().lower()
+    if c in ("shipping", "forward shipping", "courier"):
+        return ExpenseType.FWD_SHIP
+    if c in ("returns", "reverse", "reverse shipping", "rto"):
+        return ExpenseType.REV_SHIP
+    if c in ("marketing", "ads", "ad spend"):
+        return ExpenseType.ADS
+    if c in ("payment processing", "gateway", "gateway fee"):
+        return ExpenseType.GATEWAY
+    if c in ("cod", "cod fee", "cod processing"):
+        return ExpenseType.COD_FEE
+    if c in ("packaging", "platform fees", "customer service", "other", "overhead"):
+        return ExpenseType.OVERHEAD
+    return ExpenseType.OVERHEAD
+
+
+class ExpenseUpdate(BaseModel):
+    category: Optional[str] = None
+    description: Optional[str] = None
+    amount: Optional[float] = None
+
+
+@router.patch("/expense/{expense_id}")
+async def update_expense(
+    expense_id: str,
+    body: ExpenseUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    exp = db.query(OrderExpense).filter(OrderExpense.id == expense_id).first()
+    if not exp:
+        raise HTTPException(status_code=404, detail="Expense not found")
+    order = db.query(Order).filter(Order.id == exp.order_id, Order.user_id == current_user.id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    if not exp.editable or exp.source != ExpenseSource.MANUAL:
+        raise HTTPException(status_code=403, detail="This expense cannot be edited")
+
+    if body.category is not None:
+        exp.type = _map_ui_category_to_expense_type(body.category)
+    if body.description is not None:
+        exp.description = body.description
+    if body.amount is not None:
+        exp.amount = body.amount
+    db.commit()
+
+    compute_order_finance(db, exp.order_id)
+    return {"message": "Expense updated"}
+
+
+@router.delete("/expense/{expense_id}")
+async def delete_expense(
+    expense_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    exp = db.query(OrderExpense).filter(OrderExpense.id == expense_id).first()
+    if not exp:
+        raise HTTPException(status_code=404, detail="Expense not found")
+    order = db.query(Order).filter(Order.id == exp.order_id, Order.user_id == current_user.id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    if not exp.editable or exp.source != ExpenseSource.MANUAL:
+        raise HTTPException(status_code=403, detail="This expense cannot be deleted")
+
+    order_id = exp.order_id
+    db.delete(exp)
+    db.commit()
+
+    compute_order_finance(db, order_id)
+    return {"message": "Expense deleted"}
+
+
+# Expense rules (versioned)
+@router.get("/expense-rules")
+async def list_expense_rules(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    rules = (
+        db.query(ExpenseRule)
+        .filter(ExpenseRule.user_id == current_user.id)
+        .order_by(ExpenseRule.type.asc(), ExpenseRule.effective_from.desc())
+        .all()
+    )
+    return {
+        "rules": [
+            {
+                "id": r.id,
+                "type": r.type,
+                "name": r.name,
+                "value": float(r.value or 0),
+                "valueType": r.value_type.value,
+                "effectiveFrom": r.effective_from.isoformat(),
+                "effectiveTo": r.effective_to.isoformat() if r.effective_to else None,
+                "platform": r.platform,
+            }
+            for r in rules
+        ]
+    }
+
+
+@router.post("/expense-rules")
+async def create_expense_rule(
+    body: ExpenseRuleCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    rule = ExpenseRule(
+        user_id=current_user.id,
+        type=(body.type or "").strip().upper(),
+        name=(body.name or "").strip()[:255],
+        value=body.value,
+        value_type=body.valueType,
+        effective_from=body.effectiveFrom,
+        effective_to=body.effectiveTo,
+        platform=(body.platform or "").strip().lower() or None,
+    )
+    db.add(rule)
+    db.commit()
+    return {"id": rule.id, "message": "Rule created"}
+
+
+@router.patch("/expense-rules/{rule_id}")
+async def update_expense_rule(
+    rule_id: str,
+    body: ExpenseRuleUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    rule = db.query(ExpenseRule).filter(ExpenseRule.id == rule_id, ExpenseRule.user_id == current_user.id).first()
+    if not rule:
+        raise HTTPException(status_code=404, detail="Rule not found")
+    if body.value is not None:
+        rule.value = body.value
+    if body.valueType is not None:
+        rule.value_type = body.valueType
+    if body.effectiveFrom is not None:
+        rule.effective_from = body.effectiveFrom
+    if body.effectiveTo is not None:
+        rule.effective_to = body.effectiveTo
+    if body.platform is not None:
+        rule.platform = (body.platform or "").strip().lower() or None
+    db.commit()
+    return {"message": "Rule updated"}
+
+
+@router.get("/ads")
+async def get_ads_attribution(
+    days: int = Query(30, ge=1, le=365),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Ads attribution (v1): summary from ad_spend_daily + overall orders/profit by date.
+    True campaign-level attribution is a future extension.
+    """
+    from app.models import AdSpendDaily
+
+    end = date.today()
+    start = end - timedelta(days=days)
+
+    spends = (
+        db.query(AdSpendDaily)
+        .filter(AdSpendDaily.date >= start, AdSpendDaily.date <= end)
+        .all()
+    )
+    spend_by_platform: dict[str, float] = {}
+    total_spend = 0.0
+    for row in spends:
+        p = (row.platform or "unknown").lower()
+        amt = float(row.spend or 0)
+        spend_by_platform[p] = spend_by_platform.get(p, 0.0) + amt
+        total_spend += amt
+
+    # Overall revenue/profit in this window (not attributed per platform yet)
+    q = (
+        db.query(func.coalesce(func.sum(OrderFinance.revenue_realized), 0), func.coalesce(func.sum(OrderFinance.net_profit), 0))
+        .join(Order, OrderFinance.order_id == Order.id)
+        .filter(Order.user_id == current_user.id)
+        .filter(func.date(Order.created_at) >= start)
+        .filter(func.date(Order.created_at) <= end)
+    ).first()
+    total_revenue = float(q[0] or 0)
+    total_profit = float(q[1] or 0)
+
+    channels = [
+        {
+            "id": platform,
+            "name": platform.replace("_", " ").title(),
+            "spend": spend,
+            "orders": 0,
+            "revenue": 0,
+            "profit": 0,
+            "roas": (total_revenue / total_spend) if total_spend else None,
+        }
+        for platform, spend in sorted(spend_by_platform.items(), key=lambda x: x[0])
+    ]
+    return {
+        "channels": channels,
+        "orders": [],
+        "totalSpend": total_spend,
+        "totalRevenue": total_revenue,
+        "totalProfit": total_profit,
+    }
 
 
 @router.get("/expenses/summary")

@@ -71,7 +71,7 @@ The system automatically detects:
 - API docs disabled
 - No auto-reload
 - Info-level logging
-- Vercel pattern CORS
+- CORS locked down (uses `ALLOWED_ORIGINS`; optional `CORS_ORIGIN_REGEX` for preview domains)
 - Production security
 
 ## Example .env Files
@@ -111,7 +111,7 @@ WEBHOOK_BASE_URL=https://your-service.onrender.com
 The system will automatically:
 - ✅ Detect it's running on Render
 - ✅ Use `0.0.0.0` as host
-- ✅ Allow all Vercel deployments via CORS
+- ✅ Apply CORS from `ALLOWED_ORIGINS` (and optional `CORS_ORIGIN_REGEX` if set)
 - ✅ Disable API docs
 - ✅ Use production logging
 
@@ -120,10 +120,21 @@ The system will automatically:
 Set in Vercel dashboard:
 
 ```env
-NEXT_PUBLIC_API_URL=https://your-backend.onrender.com/api
+NEXT_PUBLIC_API_BASE_URL=https://your-backend.onrender.com
+# (or) NEXT_PUBLIC_API_URL=https://your-backend.onrender.com/api
 ```
 
-The backend will automatically allow your Vercel deployment via CORS regex pattern.
+Also set in Render (backend) to avoid CORS issues:
+
+```env
+ALLOWED_ORIGINS=https://your-frontend.vercel.app
+FRONTEND_URL=https://your-frontend.vercel.app
+WEBHOOK_BASE_URL=https://your-backend.onrender.com
+```
+
+Notes:
+- `NEXT_PUBLIC_API_BASE_URL` is preferred (origin only). Frontend code auto-appends `/api`.
+- In production, Shopify OAuth requires `WEBHOOK_BASE_URL` (no fallback to localhost).
 
 ## Testing
 

@@ -11,7 +11,8 @@ from sqlalchemy import func
 from app.models import (
     Order, OrderFinance, OrderExpense, OrderSettlement, CustomerRisk,
     OrderItem, Shipment, SkuCost,
-    PaymentType, FulfilmentStatus, ProfitStatus, ExpenseType, ExpenseSource, SettlementStatus, RiskTag
+    PaymentType, FulfilmentStatus, ProfitStatus, ExpenseType, ExpenseSource, SettlementStatus, RiskTag,
+    ExpenseRule, ExpenseRuleValueType
 )
 from app.services.credentials import decrypt_token
 import json
@@ -124,11 +125,22 @@ def _calculate_revenue(order: Order, payment_type: PaymentType, fulfilment_statu
 
 def _compute_order_expenses(db: Session, order: Order, finance_id: str) -> List[OrderExpense]:
     """Compute all expenses for an order"""
-    expenses = []
+    expenses: List[OrderExpense] = []
     effective_date = order.created_at.date() if order.created_at else date.today()
     
-    # Clear existing expenses for this finance record
-    db.query(OrderExpense).filter(OrderExpense.order_finance_id == finance_id).delete()
+    # Preserve manual expenses; recompute only SYSTEM/API rows.
+    existing_manual = (
+        db.query(OrderExpense)
+        .filter(
+            OrderExpense.order_finance_id == finance_id,
+            OrderExpense.source == ExpenseSource.MANUAL,
+        )
+        .all()
+    )
+    db.query(OrderExpense).filter(
+        OrderExpense.order_finance_id == finance_id,
+        OrderExpense.source != ExpenseSource.MANUAL,
+    ).delete()
     
     # 1. Product costs (COGS)
     product_cost = _calculate_product_costs(db, order)
@@ -159,7 +171,7 @@ def _compute_order_expenses(db: Session, order: Order, finance_id: str) -> List[
         ))
     
     # 3. Payment gateway fees
-    gateway_fee = _calculate_gateway_fees(order)
+    gateway_fee = _calculate_gateway_fees(db, order)
     if gateway_fee > 0:
         expenses.append(OrderExpense(
             order_id=order.id,
@@ -173,7 +185,7 @@ def _compute_order_expenses(db: Session, order: Order, finance_id: str) -> List[
         ))
     
     # 4. COD fees (if applicable)
-    cod_fee = _calculate_cod_fees(order)
+    cod_fee = _calculate_cod_fees(db, order)
     if cod_fee > 0:
         expenses.append(OrderExpense(
             order_id=order.id,
@@ -186,6 +198,20 @@ def _compute_order_expenses(db: Session, order: Order, finance_id: str) -> List[
             description="COD Processing Fee"
         ))
     
+    # 4b. Packaging fee (optional rule-based fee)
+    packaging_fee = _calculate_packaging_fee(db, order)
+    if packaging_fee > 0:
+        expenses.append(OrderExpense(
+            order_id=order.id,
+            order_finance_id=finance_id,
+            type=ExpenseType.OVERHEAD,
+            source=ExpenseSource.SYSTEM,
+            amount=packaging_fee,
+            effective_date=effective_date,
+            editable=False,
+            description="Packaging Fee"
+        ))
+
     # 5. Ad spend (blended CAC)
     ad_spend = _calculate_ad_spend(db, order)
     if ad_spend > 0:
@@ -219,7 +245,7 @@ def _compute_order_expenses(db: Session, order: Order, finance_id: str) -> List[
         db.add(expense)
     
     db.flush()
-    return expenses
+    return existing_manual + expenses
 
 
 def _calculate_product_costs(db: Session, order: Order) -> Decimal:
@@ -251,19 +277,96 @@ def _calculate_shipping_costs(db: Session, order: Order) -> Decimal:
     return Decimal("0")
 
 
-def _calculate_gateway_fees(order: Order) -> Decimal:
-    """Calculate payment gateway fees (typically 2% of order value)"""
+def _get_applicable_expense_rule(
+    db: Session,
+    *,
+    user_id: str,
+    rule_type: str,
+    on_date: date,
+    platform: Optional[str] = None,
+) -> Optional[ExpenseRule]:
+    """
+    Find the rule applicable on `on_date` (inclusive) for a user, optionally scoped to platform.
+    Prefers platform-specific rule over generic.
+    """
+    q = db.query(ExpenseRule).filter(
+        ExpenseRule.user_id == user_id,
+        ExpenseRule.type == rule_type,
+        ExpenseRule.effective_from <= on_date,
+        func.coalesce(ExpenseRule.effective_to, on_date) >= on_date,
+    )
+    # Prefer platform-specific
+    if platform:
+        rule = q.filter(ExpenseRule.platform == platform).order_by(ExpenseRule.effective_from.desc()).first()
+        if rule:
+            return rule
+    return q.filter(ExpenseRule.platform.is_(None)).order_by(ExpenseRule.effective_from.desc()).first()
+
+
+def _rule_to_amount(rule: ExpenseRule, base_amount: Decimal) -> Decimal:
+    """Convert a rule to an amount based on FIXED or PERCENT."""
+    val = Decimal(str(rule.value or 0))
+    if rule.value_type == ExpenseRuleValueType.FIXED:
+        return val
+    # PERCENT
+    return (base_amount * val / Decimal("100")).quantize(Decimal("0.01"))
+
+
+def _calculate_gateway_fees(db: Session, order: Order) -> Decimal:
+    """Calculate payment gateway fees (default 2% of order value; overridable via expense_rules)."""
     order_value = Decimal(str(order.total_amount or 0))
-    return order_value * Decimal("0.02")  # 2% gateway fee
+    # Rule-based override (per user)
+    try:
+        if getattr(order, "user_id", None) and order.created_at:
+            rule = _get_applicable_expense_rule(
+                db,
+                user_id=str(order.user_id),
+                rule_type="GATEWAY_FEE",
+                on_date=order.created_at.date(),
+            )
+            if rule:
+                return _rule_to_amount(rule, order_value)
+    except Exception:
+        pass
+    return (order_value * Decimal("2") / Decimal("100")).quantize(Decimal("0.01"))
 
 
-def _calculate_cod_fees(order: Order) -> Decimal:
-    """Calculate COD fees if order is COD"""
+def _calculate_cod_fees(db: Session, order: Order) -> Decimal:
+    """Calculate COD fees if order is COD (default 3% of order value; overridable via expense_rules)."""
     if hasattr(order, 'payment_mode') and order.payment_mode and order.payment_mode.value.upper() == 'COD':
         order_value = Decimal(str(order.total_amount or 0))
-        return order_value * Decimal("0.03")  # 3% COD fee
+        try:
+            if getattr(order, "user_id", None) and order.created_at:
+                rule = _get_applicable_expense_rule(
+                    db,
+                    user_id=str(order.user_id),
+                    rule_type="COD_FEE",
+                    on_date=order.created_at.date(),
+                )
+                if rule:
+                    return _rule_to_amount(rule, order_value)
+        except Exception:
+            pass
+        return (order_value * Decimal("3") / Decimal("100")).quantize(Decimal("0.01"))
     return Decimal("0")
 
+
+def _calculate_packaging_fee(db: Session, order: Order) -> Decimal:
+    """Calculate packaging fee via PACKAGING_FEE rule (optional)."""
+    order_value = Decimal(str(order.total_amount or 0))
+    try:
+        if getattr(order, "user_id", None) and order.created_at:
+            rule = _get_applicable_expense_rule(
+                db,
+                user_id=str(order.user_id),
+                rule_type="PACKAGING_FEE",
+                on_date=order.created_at.date(),
+            )
+            if rule:
+                return _rule_to_amount(rule, order_value)
+    except Exception:
+        pass
+    return Decimal("0")
 
 def _calculate_ad_spend(db: Session, order: Order) -> Decimal:
     """Calculate blended ad spend for order date"""

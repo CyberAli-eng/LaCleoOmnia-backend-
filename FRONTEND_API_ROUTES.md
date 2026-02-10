@@ -1,22 +1,37 @@
-# Frontend API base and routes (backend is /api only)
+# Frontend API base and routes (Next.js `authFetch()` contract)
 
-**Canonical base URL:** All API routes live under `/api`. Do not use `/auth`, `/orders`, etc. without the `/api` prefix.
+## Base URL (important)
 
-**Full base:** `https://lacleoomnia-api.onrender.com/api`  
-(or your deployed API origin + `/api`)
+In the frontend, `API_BASE_URL` is normalized to **end with `/api`** (see `web/utils/api.ts`).
+
+That means:
+
+- **Frontend must call:** `authFetch("/finance/overview")`, `authFetch("/orders")`, etc.
+- **Frontend must NOT call:** `authFetch("/api/finance/overview")` (would become `/api/api/...`)
+
+**Production example API origin (Render):** `https://lacleoomnia-api.onrender.com`  
+Frontend env can be either:
+
+- `NEXT_PUBLIC_API_BASE_URL=https://lacleoomnia-api.onrender.com` (recommended), or
+- `NEXT_PUBLIC_API_URL=https://lacleoomnia-api.onrender.com/api`
+
+Both work because the frontend normalizes to `{ORIGIN}/api`.
 
 ---
 
 ## Rule for the frontend
 
-- **Wrong:** `https://lacleoomnia-api.onrender.com/auth/register`  
-- **Correct:** `https://lacleoomnia-api.onrender.com/api/auth/register`
+If you are calling the backend **directly** (curl/Postman), you must include `/api`.
 
-Every request to this backend must start with `{API_ORIGIN}/api/...`.
+- **Correct (direct call):** `https://lacleoomnia-api.onrender.com/api/auth/login`
+
+If you are calling via the frontend helper (`authFetch()`), you must **not** include `/api` in the path.
+
+- **Correct (frontend call):** `authFetch("/auth/login")`
 
 ---
 
-## All API routes (prefix each with `{API_ORIGIN}/api`)
+## All API routes (direct backend paths: prefix each with `{API_ORIGIN}/api`)
 
 ### Auth — prefix `/api/auth`
 | Method | Path | Description |
@@ -133,6 +148,11 @@ Every request to this backend must start with `{API_ORIGIN}/api/...`.
 | POST | `/api/shipments/sync` |
 | GET | `/api/shipments/{shipment_id}` |
 
+### Logistics analytics — prefix `/api/logistics`
+| Method | Path |
+|--------|------|
+| GET | `/api/logistics/rto` |
+
 ### Profit — prefix `/api/profit`
 | Method | Path |
 |--------|------|
@@ -168,6 +188,22 @@ Every request to this backend must start with `{API_ORIGIN}/api/...`.
 | GET | `/api/integrations/shopify/inventory` |
 | POST | `/api/integrations/shopify/sync/orders` |
 | POST | `/api/integrations/shopify/sync` |
+
+### Finance — prefix `/api/finance` (golden endpoints)
+| Method | Path | Used by |
+|--------|------|---------|
+| GET | `/api/finance/overview` | Dashboard |
+| GET | `/api/finance/orders/{order_id}` | Orders drawer |
+| GET | `/api/finance/pnl` | P&L page |
+| GET | `/api/finance/settlements` | Settlements page |
+| GET | `/api/finance/risk` | Risk page |
+| GET | `/api/finance/ads` | Ads page |
+| POST | `/api/finance/expenses` | Manual expense create |
+| PATCH | `/api/finance/expense/{expense_id}` | Manual expense edit |
+| DELETE | `/api/finance/expense/{expense_id}` | Manual expense delete |
+| GET | `/api/finance/expense-rules` | Settings page |
+| POST | `/api/finance/expense-rules` | Settings page |
+| PATCH | `/api/finance/expense-rules/{rule_id}` | Settings page |
 
 ### Audit — prefix `/api/audit`
 | Method | Path |

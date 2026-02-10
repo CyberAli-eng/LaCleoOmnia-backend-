@@ -728,12 +728,85 @@
           }
         },
         {
+          "name": "PATCH Update Manual Expense (frontend ExpenseEditor)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"category\": \"Packaging\",\n  \"description\": \"Updated packaging fee\",\n  \"amount\": 25.00\n}"
+            },
+            "url": "{{base_url}}/api/finance/expense/{{expense_id}}",
+            "description": "Update a MANUAL (editable) expense row. Note: ExpenseEditor uses category/description/amount."
+          }
+        },
+        {
+          "name": "DELETE Delete Manual Expense (frontend ExpenseEditor)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{base_url}}/api/finance/expense/{{expense_id}}",
+            "description": "Delete a MANUAL (editable) expense row."
+          }
+        },
+        {
           "name": "GET Expense Summary",
           "request": {
             "method": "GET",
             "header": [],
             "url": "{{base_url}}/api/finance/expenses/summary",
             "description": "Get expense summary by type for all orders"
+          }
+        },
+        {
+          "name": "GET Expense Rules (versioned fees)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/finance/expense-rules",
+            "description": "List date-based expense rules (gateway/COD/packaging). Used by the Settings page."
+          }
+        },
+        {
+          "name": "POST Create Expense Rule",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"GATEWAY_FEE\",\n  \"name\": \"Gateway fee\",\n  \"value\": 2.0,\n  \"valueType\": \"PERCENT\",\n  \"effectiveFrom\": \"2026-01-01\",\n  \"effectiveTo\": null,\n  \"platform\": null\n}"
+            },
+            "url": "{{base_url}}/api/finance/expense-rules",
+            "description": "Create a new expense rule. valueType=PERCENT means value is % (e.g. 2.0 => 2%)."
+          }
+        },
+        {
+          "name": "PATCH Update Expense Rule",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"value\": 2.25,\n  \"valueType\": \"PERCENT\",\n  \"effectiveTo\": null\n}"
+            },
+            "url": "{{base_url}}/api/finance/expense-rules/{{rule_id}}",
+            "description": "Update an existing rule by id."
+          }
+        },
+        {
+          "name": "GET Ads Attribution (v1 summary)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/finance/ads?days=30",
+              "host": ["{{base_url}}"],
+              "path": ["api", "finance", "ads"],
+              "query": [
+                { "key": "days", "value": "30", "description": "Lookback window in days (1-365)" }
+              ]
+            },
+            "description": "Ads summary from ad_spend_daily + overall profit window. Campaign attribution is future."
           }
         },
         {
@@ -752,6 +825,27 @@
             "header": [],
             "url": "{{base_url}}/api/finance/jobs/settlements",
             "description": "Run settlement job (admin only) - detects overdue and auto-settles"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Logistics",
+      "item": [
+        {
+          "name": "GET RTO Dashboard (loss by pincode)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/logistics/rto?days=90",
+              "host": ["{{base_url}}"],
+              "path": ["api", "logistics", "rto"],
+              "query": [
+                { "key": "days", "value": "90", "description": "Lookback window in days (1-365)" }
+              ]
+            },
+            "description": "RTO and loss KPIs by pincode. Used by the Logistics page."
           }
         }
       ]

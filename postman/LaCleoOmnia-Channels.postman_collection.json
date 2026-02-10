@@ -71,7 +71,9 @@
           "item": [
             { "name": "GET List channels", "request": { "method": "GET", "url": "{{base_url}}/api/channels" }},
             { "name": "POST Connect Shopify (Manual)", "request": { "method": "POST", "body": { "mode": "raw", "raw": "{\"seller_name\": \"Your Store\", \"shop_domain\": \"your-store\", \"access_token\": \"shpat_...\"}" }, "url": "{{base_url}}/api/channels/shopify/connect" }},
+            { "name": "GET Shopify OAuth Install URL", "request": { "method": "GET", "url": "{{base_url}}/api/channels/shopify/oauth/install?shop=your-store" }},
             { "name": "POST Import Shopify Orders", "request": { "method": "POST", "url": "{{base_url}}/api/channels/shopify/import-orders" }},
+            { "name": "GET Shopify Status", "request": { "method": "GET", "url": "{{base_url}}/api/integrations/shopify/status" }},
             { "name": "POST Register Webhooks", "request": { "method": "POST", "url": "{{base_url}}/api/integrations/shopify/register-webhooks" }}
           ]
         },
@@ -79,14 +81,17 @@
           "name": "Amazon",
           "item": [
             { "name": "GET Amazon Status", "request": { "method": "GET", "url": "{{base_url}}/api/integrations/providers/amazon/status" }},
-            { "name": "POST Connect Amazon", "request": { "method": "POST", "url": "{{base_url}}/api/integrations/providers/amazon/connect" }}
+            { "name": "POST Connect Amazon", "request": { "method": "POST", "body": { "mode": "raw", "raw": "{\n  \"seller_id\": \"YOUR_SELLER_ID\",\n  \"lwa_client_id\": \"...\",\n  \"lwa_client_secret\": \"...\",\n  \"lwa_refresh_token\": \"...\",\n  \"marketplace_id\": \"A21TJRUUN4KGV\"\n}" }, "url": "{{base_url}}/api/integrations/providers/amazon/connect" }},
+            { "name": "POST Sync Amazon Orders", "request": { "method": "POST", "url": "{{base_url}}/api/integrations/providers/amazon/sync" }}
           ]
         },
         {
           "name": "Flipkart/Myntra",
           "item": [
-            { "name": "POST Connect Flipkart", "request": { "method": "POST", "url": "{{base_url}}/api/integrations/providers/flipkart/connect" }},
-            { "name": "POST Connect Myntra", "request": { "method": "POST", "url": "{{base_url}}/api/integrations/providers/myntra/connect" }}
+            { "name": "POST Connect Flipkart", "request": { "method": "POST", "body": { "mode": "raw", "raw": "{\n  \"client_id\": \"...\",\n  \"client_secret\": \"...\"\n}" }, "url": "{{base_url}}/api/integrations/providers/flipkart/connect" }},
+            { "name": "POST Sync Flipkart Orders", "request": { "method": "POST", "url": "{{base_url}}/api/integrations/providers/flipkart/sync" }},
+            { "name": "POST Connect Myntra", "request": { "method": "POST", "body": { "mode": "raw", "raw": "{\n  \"api_key\": \"...\",\n  \"seller_id\": \"...\"\n}" }, "url": "{{base_url}}/api/integrations/providers/myntra/connect" }},
+            { "name": "POST Sync Myntra Orders", "request": { "method": "POST", "url": "{{base_url}}/api/integrations/providers/myntra/sync" }}
           ]
         }
       ]
@@ -98,14 +103,16 @@
           "name": "Meta Ads",
           "item": [
             { "name": "GET Status", "request": { "method": "GET", "url": "{{base_url}}/api/integrations/providers/meta_ads/status" }},
-            { "name": "POST Connect", "request": { "method": "POST", "url": "{{base_url}}/api/integrations/providers/meta_ads/connect" }}
+            { "name": "POST Connect", "request": { "method": "POST", "body": { "mode": "raw", "raw": "{\n  \"ad_account_id\": \"act_123\",\n  \"access_token\": \"EAAB...\"\n}" }, "url": "{{base_url}}/api/integrations/providers/meta_ads/connect" }},
+            { "name": "POST Sync Ad Spend (all platforms)", "request": { "method": "POST", "url": "{{base_url}}/api/integrations/ad-spend/sync" }}
           ]
         },
         {
           "name": "Google Ads",
           "item": [
             { "name": "GET Status", "request": { "method": "GET", "url": "{{base_url}}/api/integrations/providers/google_ads/status" }},
-            { "name": "POST Connect", "request": { "method": "POST", "url": "{{base_url}}/api/integrations/providers/google_ads/connect" }}
+            { "name": "POST Connect", "request": { "method": "POST", "body": { "mode": "raw", "raw": "{\n  \"developer_token\": \"...\",\n  \"client_id\": \"...\",\n  \"client_secret\": \"...\",\n  \"refresh_token\": \"...\",\n  \"customer_id\": \"...\"\n}" }, "url": "{{base_url}}/api/integrations/providers/google_ads/connect" }},
+            { "name": "POST Sync Ad Spend (all platforms)", "request": { "method": "POST", "url": "{{base_url}}/api/integrations/ad-spend/sync" }}
           ]
         }
       ]
@@ -116,14 +123,18 @@
         {
           "name": "Delhivery",
           "item": [
-            { "name": "POST Connect Delhivery", "request": { "method": "POST", "url": "{{base_url}}/api/integrations/providers/delhivery/connect" }},
-            { "name": "POST Sync Shipments", "request": { "method": "POST", "url": "{{base_url}}/api/shipments/sync" }}
+            { "name": "GET Delhivery Status", "request": { "method": "GET", "url": "{{base_url}}/api/integrations/providers/delhivery/status" }},
+            { "name": "POST Connect Delhivery", "request": { "method": "POST", "body": { "mode": "raw", "raw": "{\n  \"apiKey\": \"YOUR_DELHIVERY_API_KEY\"\n}" }, "url": "{{base_url}}/api/integrations/providers/delhivery/connect" }},
+            { "name": "POST Sync Shipments", "request": { "method": "POST", "url": "{{base_url}}/api/shipments/sync" }},
+            { "name": "GET RTO Dashboard", "request": { "method": "GET", "url": "{{base_url}}/api/logistics/rto?days=90" }}
           ]
         },
         {
           "name": "Selloship",
           "item": [
-            { "name": "POST Connect Selloship", "request": { "method": "POST", "url": "{{base_url}}/api/integrations/providers/selloship/connect" }}
+            { "name": "GET Selloship Status", "request": { "method": "GET", "url": "{{base_url}}/api/integrations/providers/selloship/status" }},
+            { "name": "POST Connect Selloship", "request": { "method": "POST", "body": { "mode": "raw", "raw": "{\n  \"username\": \"your@email.com\",\n  \"password\": \"...\"\n}" }, "url": "{{base_url}}/api/integrations/providers/selloship/connect" }},
+            { "name": "POST Sync Shipments", "request": { "method": "POST", "url": "{{base_url}}/api/shipments/sync" }}
           ]
         }
       ]
