@@ -298,6 +298,12 @@ def sync_cod_settlements(
                 "synced": stored_count,
                 "errors": len([e for e in total_errors if provider_name in e])
             }
+        except Exception as e:
+            logger.error("Failed to sync COD settlements for %s: %s", provider_name, e)
+            results[provider_name] = {
+                "synced": 0,
+                "errors": 1
+            }
     
     return {
         "providers": results,
