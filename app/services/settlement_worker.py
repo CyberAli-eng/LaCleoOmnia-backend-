@@ -8,8 +8,7 @@ from typing import Any
 from app.config import settings
 from app.database import SessionLocal
 from app.services.cod_settlement_sync import sync_cod_settlements
-from app.services.razorpay_payment_sync import sync_razorpay_payments
-from app.services.razorpay_settlement_sync import sync_razorpay_settlements
+from app.services.razorpay_sync import sync_razorpay_payments, sync_razorpay_settlements
 from app.services.settlement_engine_v2 import process_settlements
 
 logger = logging.getLogger(__name__)
