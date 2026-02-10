@@ -214,7 +214,7 @@ def get_cod_settlement_provider(provider_name: str) -> CODSettlementProvider:
         raise ValueError(f"Unsupported COD settlement provider: {provider_name}")
 
 
-def sync_cod_settlements(
+async def sync_cod_settlements(
     db: Any,
     days_back: int = 7,
     providers: Optional[List[str]] = None
@@ -241,7 +241,6 @@ def sync_cod_settlements(
             stored_count = 0
             for remittance in remittances:
                 try:
-                    # Check if order exists
                     from app.models import Order, OrderFinance, OrderStatus
                     
                     order = db.query(Order).filter(
@@ -287,11 +286,13 @@ def sync_cod_settlements(
                         
                         order.updated_at = datetime.now(timezone.utc)
                         stored_count += 1
-                
-                db.commit()
                 except Exception as e:
-                    logger.error("Failed to store COD remittance %s: %s", e)
+                    db.rollback()
+                    logger.error("Failed to process remittance %s: %s", remittance.get('awb'), e)
                     total_errors.append(f"{provider_name}: {str(e)}")
+            
+            # Commit all successful updates for this provider at once
+            db.commit()
             
             total_synced += stored_count
             results[provider_name] = {
