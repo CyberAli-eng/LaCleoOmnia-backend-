@@ -86,6 +86,98 @@ async def list_orders(
     
     return {"orders": result}
 
+@router.get("/by-channel/{channel_order_id}")
+async def get_order_by_channel_order_id(
+    channel_order_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Get order details by channelOrderId (scoped to current user)."""
+    channel_accounts = db.query(ChannelAccount).filter(
+        ChannelAccount.user_id == current_user.id
+    ).all()
+    channel_account_ids = [ca.id for ca in channel_accounts]
+    if not channel_account_ids:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    order = (
+        db.query(Order)
+        .filter(
+            Order.channel_account_id.in_(channel_account_ids),
+            Order.channel_order_id == channel_order_id,
+        )
+        .first()
+    )
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    items = db.query(OrderItem).filter(OrderItem.order_id == order.id).all()
+
+    from app.models import Shipment
+    shipment = db.query(Shipment).filter(Shipment.order_id == order.id).first()
+    profit = db.query(OrderProfit).filter(OrderProfit.order_id == order.id).first()
+
+    return {
+        "order": {
+            "id": order.id,
+            "channelOrderId": order.channel_order_id,
+            "customerName": order.customer_name,
+            "customerEmail": order.customer_email,
+            "shippingAddress": getattr(order, "shipping_address", None) or None,
+            "billingAddress": getattr(order, "billing_address", None) or None,
+            "paymentMode": order.payment_mode.value,
+            "orderTotal": float(order.order_total),
+            "status": order.status.value,
+            "createdAt": order.created_at.isoformat(),
+            "updatedAt": order.updated_at.isoformat() if order.updated_at else None,
+            "items": [
+                {
+                    "id": item.id,
+                    "sku": item.sku,
+                    "title": item.title,
+                    "qty": item.qty,
+                    "price": float(item.price),
+                    "fulfillmentStatus": item.fulfillment_status.value,
+                    "variantId": item.variant_id,
+                }
+                for item in items
+            ],
+            "shipment": {
+                "courierName": shipment.courier_name,
+                "awbNumber": shipment.awb_number,
+                "trackingUrl": shipment.tracking_url,
+                "labelUrl": shipment.label_url,
+                "status": shipment.status.value,
+                "forwardCost": float(getattr(shipment, "forward_cost", None) or 0),
+                "reverseCost": float(getattr(shipment, "reverse_cost", None) or 0),
+                "shippedAt": shipment.shipped_at.isoformat() if shipment.shipped_at else None,
+                "lastSyncedAt": (lambda x: x.isoformat() if x else None)(
+                    getattr(shipment, "last_synced_at", None)
+                ),
+            }
+            if shipment
+            else None,
+            "profit": {
+                "revenue": float(profit.revenue),
+                "productCost": float(profit.product_cost),
+                "packagingCost": float(profit.packaging_cost),
+                "shippingCost": float(profit.shipping_cost),
+                "shippingForward": float(getattr(profit, "shipping_forward", 0) or 0),
+                "shippingReverse": float(getattr(profit, "shipping_reverse", 0) or 0),
+                "marketingCost": float(profit.marketing_cost),
+                "paymentFee": float(profit.payment_fee),
+                "netProfit": float(profit.net_profit),
+                "rtoLoss": float(getattr(profit, "rto_loss", 0) or 0),
+                "lostLoss": float(getattr(profit, "lost_loss", 0) or 0),
+                "courierStatus": getattr(profit, "courier_status", None),
+                "finalStatus": getattr(profit, "final_status", None),
+                "status": profit.status,
+            }
+            if profit
+            else None,
+        }
+    }
+
 @router.get("/{order_id}")
 async def get_order(
     order_id: str,

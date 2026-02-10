@@ -12,7 +12,9 @@
   },
   "variable": [
     { "key": "base_url", "value": "http://localhost:8000" },
-    { "key": "token", "value": "" }
+      { "key": "token", "value": "" },
+      { "key": "order_id", "value": "" },
+      { "key": "channel_order_id", "value": "" }
   ],
   "item": [
     {
@@ -137,7 +139,16 @@
             "method": "GET",
             "header": [],
             "url": "{{base_url}}/api/orders/{{order_id}}",
-            "description": "Set order_id in collection/env or replace in URL."
+            "description": "Get a single order by UUID (Order.id). Set {{order_id}} from list-orders."
+          }
+        },
+        {
+          "name": "GET Get order by Channel Order ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/orders/by-channel/{{channel_order_id}}",
+            "description": "Get a single order by channelOrderId (Order.channel_order_id), scoped to the current user."
           }
         },
         {

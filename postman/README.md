@@ -55,7 +55,7 @@ The **Login** request has a test script that saves the returned `token` into the
 |--------|----------------------------|
 | **Health** | GET Health check |
 | **Auth** | POST Login, POST Register, GET Get current user (me), POST Logout |
-| **Orders** | GET List orders, GET Get order by ID, POST Confirm order, POST Pack order, POST Ship order, POST Cancel order |
+| **Orders** | GET List orders, GET Get order by ID (UUID), GET Get order by Channel Order ID, POST Confirm order, POST Pack order, POST Ship order, POST Cancel order |
 | **Inventory** | GET List inventory, POST Adjust inventory |
 | **Integrations** | GET Get catalog, GET Get provider status, POST Connect provider, GET Get Shopify app status, POST Connect Shopify app, GET Get Shopify status, GET Get Shopify orders, GET Get Shopify inventory, POST Sync Shopify, POST Register Shopify webhooks, POST Sync ad spend |
 | **Shipments** | GET List shipments, GET Get shipment by order ID, POST Create shipment, POST Sync shipments |

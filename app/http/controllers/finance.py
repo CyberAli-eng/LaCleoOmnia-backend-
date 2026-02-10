@@ -13,6 +13,7 @@ from app.database import get_db
 from app.models import (
     User,
     Order,
+    ChannelAccount,
     OrderFinance,
     OrderExpense,
     OrderSettlement,
@@ -93,9 +94,16 @@ async def get_order_finance(
     current_user: User = Depends(get_current_user)
 ):
     """Get detailed finance information for a specific order"""
-    # Verify order belongs to user
-    from app.models import Order
-    order = db.query(Order).filter(Order.id == order_id, Order.user_id == current_user.id).first()
+    # Verify order belongs to user (via ChannelAccount.user_id; Order has no user_id)
+    account_ids = [
+        ca.id
+        for ca in db.query(ChannelAccount).filter(ChannelAccount.user_id == current_user.id).all()
+    ]
+    order = (
+        db.query(Order)
+        .filter(Order.id == order_id, Order.channel_account_id.in_(account_ids))
+        .first()
+    )
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
     
