@@ -109,3 +109,8 @@ def start_settlement_worker():
     
     # Start the background task
     asyncio.create_task(run_daily_sync())
+    
+    # Start AWB sync worker
+    from app.services.awb_sync_worker import awb_sync_worker
+    asyncio.create_task(awb_sync_worker())
+    logger.info("Started AWB sync worker")

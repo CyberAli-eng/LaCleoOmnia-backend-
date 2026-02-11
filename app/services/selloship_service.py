@@ -6,6 +6,7 @@ Maps currentStatus (e.g. IN_TRANSIT, DELIVERED) to internal ShipmentStatus. Neve
 """
 import logging
 import time
+import asyncio
 from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any, Optional
@@ -652,4 +653,290 @@ async def sync_selloship_shipments(db: Any, api_key: Optional[str] = None) -> di
     except Exception as e:
         db.rollback()
         errors.append(f"commit: {e}")
-    return {"synced": synced, "updated": synced, "errors": errors[:50]}
+    return synced, errors
+
+
+# ===== AWB DISCOVERY ENGINE =====
+
+async def get_pending_selloship_orders(db) -> list:
+    """
+    Get orders that need AWB discovery.
+    Orders where courier is 'selloship' and AWB is NULL.
+    """
+    from app.models import Order, SelloshipMapping, OrderStatus, Shipment
+    
+    # Get orders that need AWB discovery (orders with Selloship shipment but no AWB)
+    orders = db.query(Order).join(Shipment, Order.id == Shipment.order_id).join(SelloshipMapping, Order.id == SelloshipMapping.order_id, isouter=True).filter(
+        Shipment.courier_name == 'selloship',
+        Shipment.awb_number.is_(None),
+        Order.status.in_([OrderStatus.NEW, OrderStatus.PACKED, OrderStatus.SHIPPED])
+    ).all()
+    
+    # Ensure mapping exists for each order
+    for order in orders:
+        if not hasattr(order, 'selloship_mapping') or not order.selloship_mapping:
+            mapping = SelloshipMapping(
+                order_id=order.id,
+                channel_order_id=order.channel_order_id,
+                selloship_order_id=None,
+                awb=None
+            )
+            db.add(mapping)
+    
+    db.commit()
+    return orders
+
+
+async def fetch_selloship_order_list() -> list:
+    """
+    Fetch order list from Selloship to find mapping between channel_order_id and selloship_order_id.
+    """
+    from app.services.credentials import get_provider_credentials
+    
+    try:
+        creds = await get_provider_credentials("selloship")
+        if not creds or not creds.get("token"):
+            logger.error("[AWB_SYNC] No Selloship credentials found")
+            return []
+        
+        headers = {"Authorization": f"Bearer {creds['token']}"}
+        logger.info(f"[AWB_SYNC] Fetching order list from Selloship")
+        
+        # Try different endpoints to get order list
+        endpoints_to_try = [
+            "/v2/seller/order/list",
+            "/api/lock_actvs/channels/orders",
+            "/seller/orders",
+            "/api/orders"
+        ]
+        
+        for endpoint in endpoints_to_try:
+            try:
+                logger.debug(f"[AWB_SYNC] Trying endpoint: {endpoint}")
+                async with httpx.AsyncClient(timeout=30) as client:
+                    response = await client.get(
+                        f"{creds.get('base_url', 'https://api.selloship.com')}{endpoint}",
+                        headers=headers
+                    )
+                    
+                    if response.status_code == 200:
+                        data = response.json()
+                        orders = data.get("orders", data.get("data", []))
+                        logger.info(f"[AWB_SYNC] Found {len(orders)} orders from {endpoint}")
+                        return orders
+                    else:
+                        logger.debug(f"[AWB_SYNC] Endpoint {endpoint} returned {response.status_code}")
+                        
+            except Exception as e:
+                logger.debug(f"[AWB_SYNC] Endpoint {endpoint} failed: {e}")
+                continue
+        
+        logger.warning("[AWB_SYNC] All endpoints failed, falling back to webhook imports")
+        return []
+        
+    except Exception as e:
+        logger.error(f"[AWB_SYNC] Failed to fetch order list: {e}")
+        return []
+
+
+async def fetch_awb_for_order(selloship_order_id: str) -> str:
+    """
+    Fetch AWB for a specific Selloship order.
+    """
+    from app.services.credentials import get_provider_credentials
+    
+    try:
+        creds = await get_provider_credentials("selloship")
+        if not creds or not creds.get("token"):
+            return None
+        
+        headers = {"Authorization": f"Bearer {creds['token']}"}
+        
+        # Try to get order details with AWB
+        endpoints_to_try = [
+            f"/v2/seller/order/{selloship_order_id}",
+            f"/api/order/{selloship_order_id}",
+            f"/seller/order/status/{selloship_order_id}"
+        ]
+        
+        for endpoint in endpoints_to_try:
+            try:
+                async with httpx.AsyncClient(timeout=30) as client:
+                    response = await client.get(
+                        f"{creds.get('base_url', 'https://api.selloship.com')}{endpoint}",
+                        headers=headers
+                    )
+                    
+                    if response.status_code == 200:
+                        data = response.json()
+                        awb = data.get("awb") or data.get("waybill") or data.get("tracking_number")
+                        if awb:
+                            logger.info(f"[AWB_SYNC] Found AWB {awb} for order {selloship_order_id}")
+                            return awb
+                        
+            except Exception as e:
+                logger.debug(f"[AWB_SYNC] Order detail endpoint {endpoint} failed: {e}")
+                continue
+        
+        return None
+        
+    except Exception as e:
+        logger.error(f"[AWB_SYNC] Failed to fetch AWB for {selloship_order_id}: {e}")
+        return None
+
+
+async def update_selloship_mapping(db, order_id: str, selloship_order_id: str, awb: str):
+    """
+    Update Selloship mapping and create shipment record.
+    """
+    from app.models import Order, SelloshipMapping, Shipment, ShipmentStatus, ShipmentTracking
+    from app.services.profit_calculator import compute_profit_for_order
+    
+    try:
+        # Update mapping
+        mapping = db.query(SelloshipMapping).filter(SelloshipMapping.order_id == order_id).first()
+        if mapping:
+            mapping.selloship_order_id = selloship_order_id
+            mapping.awb = awb
+            mapping.last_checked = datetime.now(timezone.utc)
+        
+        # Update order
+        order = db.query(Order).filter(Order.id == order_id).first()
+        if order:
+            # Order doesn't have awb_number field, it's in shipment
+            pass
+        
+        # Create or update shipment
+        shipment = db.query(Shipment).filter(Shipment.order_id == order_id).first()
+        if not shipment:
+            shipment = Shipment(
+                order_id=order_id,
+                courier_name="selloship",
+                awb_number=awb,
+                status=ShipmentStatus.SHIPPED,
+                shipped_at=datetime.now(timezone.utc)
+            )
+            db.add(shipment)
+        else:
+            shipment.awb_number = awb
+            shipment.status = ShipmentStatus.SHIPPED
+            shipment.shipped_at = datetime.now(timezone.utc)
+        
+        # Create tracking record
+        tracking = ShipmentTracking(
+            shipment_id=shipment.id,
+            waybill=awb,
+            status="SHIPPED",
+            raw_response={"selloship_order_id": selloship_order_id}
+        )
+        db.add(tracking)
+        
+        # Trigger finance computation
+        await compute_profit_for_order(db, order_id)
+        
+        db.commit()
+        logger.info(f"[AWB_SYNC] Updated mapping for order {order_id} with AWB {awb}")
+        
+        # Push fulfillment to Shopify
+        await push_shopify_fulfillment(order, awb)
+        
+        return True
+        
+    except Exception as e:
+        logger.error(f"[AWB_SYNC] Failed to update mapping for {order_id}: {e}")
+        db.rollback()
+        return False
+
+
+async def push_shopify_fulfillment(order, awb: str):
+    """
+    Push fulfillment to Shopify when AWB is discovered.
+    """
+    try:
+        from app.services.shopify_service import ShopifyService
+        
+        if order.channel and order.channel.name.value == "SHOPIFY":
+            service = ShopifyService()
+            
+            fulfillment_data = {
+                "tracking_number": awb,
+                "tracking_company": "selloship",
+                "location_id": service.default_location_id,
+                "notify_customer": True,
+                "line_items": [{"id": item.shopify_line_item_id} for item in order.items if item.shopify_line_item_id]
+            }
+            
+            await service.create_fulfillment(order.channel_order_id, fulfillment_data)
+            logger.info(f"[AWB_SYNC] Pushed fulfillment to Shopify for order {order.channel_order_id}")
+            
+    except Exception as e:
+        logger.error(f"[AWB_SYNC] Failed to push Shopify fulfillment: {e}")
+
+
+async def process_awb_discovery_batch(db, batch_size: int = 50):
+    """
+    Process a batch of orders for AWB discovery.
+    """
+    from app.models import SelloshipMapping
+    
+    # Get pending orders
+    pending_orders = await get_pending_selloship_orders(db)
+    logger.info(f"[AWB_SYNC] Processing {len(pending_orders)} pending orders")
+    
+    # Get Selloship order list
+    selloship_orders = await fetch_selloship_order_list()
+    
+    # Create mapping between channel_order_id and selloship_order_id
+    order_mapping = {}
+    for so_order in selloship_orders:
+        channel_order_id = so_order.get("channel_order_id") or so_order.get("external_id")
+        selloship_id = so_order.get("id") or so_order.get("selloship_order_id")
+        if channel_order_id and selloship_id:
+            order_mapping[channel_order_id] = selloship_id
+    
+    # Process orders in batches
+    processed = 0
+    found_awb = 0
+    
+    for i in range(0, len(pending_orders), batch_size):
+        batch = pending_orders[i:i + batch_size]
+        
+        for order in batch:
+            try:
+                # Find Selloship order ID
+                selloship_order_id = order_mapping.get(order.channel_order_id)
+                
+                if selloship_order_id:
+                    # Update mapping
+                    mapping = db.query(SelloshipMapping).filter(SelloshipMapping.order_id == order.id).first()
+                    if mapping:
+                        mapping.selloship_order_id = selloship_order_id
+                        mapping.last_checked = datetime.now(timezone.utc)
+                    
+                    # Fetch AWB
+                    awb = await fetch_awb_for_order(selloship_order_id)
+                    
+                    if awb:
+                        success = await update_selloship_mapping(db, order.id, selloship_order_id, awb)
+                        if success:
+                            found_awb += 1
+                    else:
+                        # Update last checked even if no AWB found
+                        if mapping:
+                            mapping.last_checked = datetime.now(timezone.utc)
+                
+                processed += 1
+                
+            except Exception as e:
+                logger.error(f"[AWB_SYNC] Error processing order {order.id}: {e}")
+                continue
+        
+        # Commit batch
+        db.commit()
+        
+        # Small delay between batches
+        if i + batch_size < len(pending_orders):
+            await asyncio.sleep(1)
+    
+    logger.info(f"[AWB_SYNC] Processed {processed} orders, found {found_awb} AWBs")
+    return processed, found_awb

@@ -2,7 +2,8 @@
 Shipment routes: list, get by id or order_id, create, sync, generate label (Selloship).
 """
 import logging
-from fastapi import APIRouter, Depends, HTTPException, status
+from datetime import datetime, timezone
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from typing import Optional
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -181,6 +182,8 @@ async def generate_label(
 
 @router.post("/sync")
 async def sync_shipments_endpoint(
+    request: Request,
+    shipment_id: Optional[str] = None,
     order_id: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -235,11 +238,85 @@ async def sync_shipments_endpoint(
     else:
         # Full sync for all shipments
         result = await sync_shipments(db, user_id=current_user.id)
+        
+        # Check if AWB discovery should be triggered
+        sync_awb_discovery = request.query_params.get("sync_awb_discovery", "false").lower() == "true"
+        if sync_awb_discovery:
+            from app.services.selloship_service import process_awb_discovery_batch
+            processed, found = await process_awb_discovery_batch(db, batch_size=50)
+            return {
+                "message": f"Synced {result['synced']} shipments and processed {processed} orders for AWB discovery",
+                "shipments_synced": result["synced"],
+                "orders_processed": processed,
+                "awbs_found": found,
+                "errors": result.get("errors", [])[:20],
+            }
+        
         return {
             "message": f"Synced {result['synced']} shipments",
             "synced": result["synced"],
             "errors": result.get("errors", [])[:20],
         }
+
+
+@router.get("/debug/selloship/awb")
+async def debug_selloship_awb_test(
+    awb: str = "SLSC1002159720",
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Test endpoint to verify Selloship AWB API connectivity.
+    """
+    try:
+        from app.services.selloship_service import get_selloship_client
+        
+        # Get Selloship credentials
+        api_key, username, password = _get_selloship_credentials(db, str(current_user.id))
+        if not api_key and not (username and password):
+            return {"status": "error", "message": "Selloship not connected"}
+        
+        client = get_selloship_client(api_key=api_key, username=username, password=password)
+        result = await client.get_tracking(awb)
+        
+        return {
+            "status": "success",
+            "awb": awb,
+            "result": result,
+            "message": "Selloship API test completed"
+        }
+        
+    except Exception as e:
+        logger.error(f"[DEBUG] Selloship AWB test failed: {e}")
+        return {
+            "status": "error",
+            "message": f"API test failed: {str(e)}"
+        }
+
+
+@router.get("/debug/selloship")
+async def debug_selloship_awb_sync(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Debug endpoint for Selloship AWB sync status.
+    Returns statistics for monitoring and troubleshooting.
+    """
+    try:
+        from app.services.awb_sync_worker import get_awb_sync_stats
+        
+        stats = await get_awb_sync_stats(db)
+        
+        return {
+            "status": "success",
+            "data": stats,
+            "message": "Selloship AWB sync debug information"
+        }
+        
+    except Exception as e:
+        logger.error(f"[DEBUG] Failed to get Selloship debug info: {e}")
+        raise HTTPException(status_code=500, detail=f"Debug endpoint failed: {str(e)}")
 
 
 @router.get("/{shipment_id}")

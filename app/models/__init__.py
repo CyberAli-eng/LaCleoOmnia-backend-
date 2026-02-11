@@ -2,12 +2,13 @@
 SQLAlchemy models matching the Prisma schema.
 All model and enum definitions live here for simplicity and to avoid circular imports.
 """
-from sqlalchemy import Column, String, Integer, Boolean, DateTime, Date, ForeignKey, Numeric, Enum as SQLEnum, JSON, UniqueConstraint
+from sqlalchemy import Column, String, Integer, Boolean, DateTime, Date, ForeignKey, Numeric, Enum as SQLEnum, JSON, UniqueConstraint, Index
 from sqlalchemy.orm import relationship, backref
 from sqlalchemy.sql import func
 from app.database import Base
 import enum
 import uuid
+from datetime import timezone
 
 # Enums
 class UserRole(str, enum.Enum):
@@ -644,3 +645,28 @@ class CustomerRisk(Base):
     
     # CustomerRisk has no direct FK relationship to Order, so we remove the relationship
     # This will be handled through queries instead
+
+
+class SelloshipMapping(Base):
+    """Mapping table for Selloship order tracking and AWB discovery"""
+    __tablename__ = "selloship_mappings"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    order_id = Column("order_id", String, ForeignKey("orders.id", ondelete="CASCADE"), nullable=False)
+    channel_order_id = Column("channel_order_id", String, nullable=False)
+    selloship_order_id = Column("selloship_order_id", String, nullable=True)
+    awb = Column("awb", String, nullable=True)
+    last_checked = Column("last_checked", DateTime(timezone=True), server_default=func.now())
+    created_at = Column("created_at", DateTime(timezone=True), server_default=func.now())
+    updated_at = Column("updated_at", DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    # Relationships
+    order = relationship("Order", backref=backref("selloship_mapping", uselist=False))
+
+    __table_args__ = (
+        Index("ix_selloship_mappings_order_id", "order_id"),
+        Index("ix_selloship_mappings_channel_order_id", "channel_order_id"),
+        Index("ix_selloship_mappings_selloship_order_id", "selloship_order_id"),
+        Index("ix_selloship_mappings_awb", "awb"),
+        Index("ix_selloship_mappings_last_checked", "last_checked"),
+    )

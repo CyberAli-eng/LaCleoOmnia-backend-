@@ -25,6 +25,7 @@ from app.models import (
     SyncJobStatus,
     SyncLog,
     LogLevel,
+    SelloshipMapping,
 )
 from app.services.shopify import ShopifyService
 from app.services.warehouse_helper import get_default_warehouse
@@ -308,6 +309,21 @@ def _persist_one_common_order(
     )
     db.add(order)
     db.flush()
+
+    # Create SelloshipMapping for orders that will use Selloship
+    # This ensures AWB discovery can work immediately
+    if account.channel and account.channel.name.value in ["SHOPIFY", "AMAZON", "FLIPKART", "MYNTRA"]:
+        # Check if this order might use Selloship (based on existing patterns or business logic)
+        # For now, create mapping for all orders - AWB worker will filter by courier later
+        selloship_mapping = SelloshipMapping(
+            order_id=order.id,
+            channel_order_id=channel_order_id,
+            selloship_order_id=None,  # Will be discovered by AWB worker
+            awb=None  # Will be discovered by AWB worker
+        )
+        db.add(selloship_mapping)
+        db.flush()
+
     for item_data in order_items_data:
         oi = OrderItem(
             order_id=order.id,
