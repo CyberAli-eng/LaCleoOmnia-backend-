@@ -487,10 +487,23 @@ def get_finance_overview(db: Session, user_id: Optional[str] = None) -> Dict:
     finances = query.all()
 
     total_orders = len(finances)
-    total_revenue = sum(f.revenue_realized for f in finances)
-    total_expenses = sum(f.total_expense for f in finances)
-    total_profit = sum(f.net_profit for f in finances)
-    loss = sum(abs(f.net_profit) for f in finances if f.net_profit < 0)
+    
+    # Handle empty data case
+    if total_orders == 0:
+        return {
+            "revenue": 0,
+            "netProfit": 0,
+            "loss": 0,
+            "rtoPercent": 0,
+            "cashPending": 0,
+            "codPercent": 0,
+            "totalOrders": 0
+        }
+    
+    total_revenue = sum(f.revenue_realized or 0 for f in finances)
+    total_expenses = sum(f.total_expense or 0 for f in finances)
+    total_profit = sum(f.net_profit or 0 for f in finances)
+    loss = sum(abs(f.net_profit or 0) for f in finances if f.net_profit and f.net_profit < 0)
     profit_orders = len([f for f in finances if f.profit_status == ProfitStatus.PROFIT])
     loss_orders = len([f for f in finances if f.profit_status == ProfitStatus.LOSS])
 

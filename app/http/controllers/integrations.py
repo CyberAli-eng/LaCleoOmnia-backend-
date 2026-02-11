@@ -269,8 +269,8 @@ def _get_integration_catalog() -> dict:
                         "icon": "💳",
                         "color": "purple",
                         "connectType": "api_key",
-                        "statusEndpoint": "/api/razorpay/status",
-                        "connectEndpoint": "/api/razorpay/connect",
+                        "statusEndpoint": "/razorpay/status",
+                        "connectEndpoint": "/razorpay/connect",
                         "connectFormFields": [
                             {"key": "key_id", "label": "Key ID", "type": "text", "placeholder": "From Razorpay Dashboard → Settings → API Keys"},
                             {"key": "key_secret", "label": "Key Secret", "type": "password", "placeholder": "From Razorpay Dashboard → Settings → API Keys"},

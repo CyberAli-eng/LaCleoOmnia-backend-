@@ -163,23 +163,34 @@ class ShopifyService:
             data = response.json()
             return data.get("shop", {})
     
-    async def get_orders(self, limit: int = 250) -> list:
-        """Get orders from Shopify"""
+    async def get_orders(self, limit: int = 250, fulfillment_status: str = "any") -> list:
+        """Get orders from Shopify - can filter by fulfillment status"""
         async with httpx.AsyncClient() as client:
+            params = {
+                "status": "any",
+                "financial_status": "paid",
+                "limit": limit
+            }
+            if fulfillment_status != "any":
+                params["fulfillment_status"] = fulfillment_status
+                
             response = await client.get(
                 f"{self.base_url}/orders.json",
-                params={
-                    "status": "any",
-                    "financial_status": "paid",
-                    "fulfillment_status": "unfulfilled",
-                    "limit": limit
-                },
+                params=params,
                 headers=self.headers,
                 timeout=30.0
             )
             response.raise_for_status()
             data = response.json()
             return data.get("orders", [])
+    
+    async def get_all_orders(self, limit: int = 250) -> list:
+        """Get ALL orders from Shopify (fulfilled and unfulfilled)"""
+        return await self.get_orders(limit=limit, fulfillment_status="any")
+    
+    async def get_fulfilled_orders(self, limit: int = 250) -> list:
+        """Get only fulfilled orders from Shopify"""
+        return await self.get_orders(limit=limit, fulfillment_status="fulfilled")
     
     async def get_products(self, limit: int = 250) -> list:
         """Get products from Shopify"""
@@ -250,21 +261,30 @@ class ShopifyService:
             data = response.json()
             return data.get("count", 0)
     
-    async def get_recent_orders(self, limit: int = 10) -> list:
-        """Get recent orders from Shopify"""
+    async def get_fulfillments(self, order_id: str) -> list:
+        """Get fulfillments for a specific order from Shopify"""
         if not self.account or not self.base_url:
             raise ValueError("ShopifyService must be initialized with account for this method")
         async with httpx.AsyncClient() as client:
             response = await client.get(
-                f"{self.base_url}/orders.json",
-                params={
-                    "status": "any",
-                    "limit": limit,
-                    "order": "created_at desc"
-                },
+                f"{self.base_url}/orders/{order_id}/fulfillments.json",
                 headers=self.headers,
                 timeout=30.0
             )
             response.raise_for_status()
             data = response.json()
-            return data.get("orders", [])
+            return data.get("fulfillments", [])
+    
+    async def get_all_fulfillments(self, limit: int = 50) -> list:
+        """Get all recent fulfillments from Shopify"""
+        if not self.account or not self.base_url:
+            raise ValueError("ShopifyService must be initialized with account for this method")
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"{self.base_url}/fulfillments.json",
+                params={
+                    "limit": limit,
+                    "order": "created_at desc"
+                },
+                headers=self.headers,
+                timeout=30.0

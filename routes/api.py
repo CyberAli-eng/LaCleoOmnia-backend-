@@ -31,6 +31,7 @@ from app.http.controllers import (
     settlements,
     razorpay,
     razorpay_webhooks,
+    dynamic_sync,
 )
 
 logger = logging.getLogger(__name__)
@@ -66,3 +67,4 @@ def register_routes(app: FastAPI, settings) -> None:
     app.include_router(sku_costs.router, prefix="/api/sku-costs", tags=["sku-costs"])
     app.include_router(profit.router, prefix="/api/profit", tags=["profit"])
     app.include_router(finance.router, prefix="/api/finance", tags=["finance"])
+    app.include_router(dynamic_sync.router, prefix="/api", tags=["dynamic-sync"])
