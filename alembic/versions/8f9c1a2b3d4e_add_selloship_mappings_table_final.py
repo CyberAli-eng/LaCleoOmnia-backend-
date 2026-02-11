@@ -1,23 +1,23 @@
-"""Add selloship_mappings table v2
+"""Add selloship_mappings table - final fix
 
-Revision ID: 2b80af5a7aa5
+Revision ID: 8f9c1a2b3d4e
 Revises: 9fef252debfb
 Create Date: 2024-02-11 12:00:00.000000
 
 """
 from alembic import op
 import sqlalchemy as sa
-from sqlalchemy.dialects import postgresql
+
 
 # revision identifiers, used by Alembic.
-revision = '2b80af5a7aa5'
+revision = '8f9c1a2b3d4e'
 down_revision = '9fef252debfb'
 branch_labels = None
 depends_on = None
 
 
 def upgrade() -> None:
-    # Create selloship_mappings table
+    # Create selloship_mappings table without foreign key
     op.create_table(
         'selloship_mappings',
         sa.Column('id', sa.String(), nullable=False),
@@ -29,7 +29,6 @@ def upgrade() -> None:
         sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
         sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
         sa.PrimaryKeyConstraint('id'),
-        sa.ForeignKeyConstraint(['order_id'], 'orders.id', ondelete='CASCADE'),
     )
     
     # Create indexes for performance
