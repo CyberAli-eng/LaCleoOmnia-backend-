@@ -202,6 +202,7 @@ class Order(Base):
     __tablename__ = "orders"
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column("user_id", String, nullable=True)
     channel_id = Column("channel_id", String, ForeignKey("channels.id", ondelete="SET NULL"), nullable=True)
     channel_account_id = Column("channel_account_id", String, ForeignKey("channel_accounts.id", ondelete="SET NULL"), nullable=True)
     channel_order_id = Column("channel_order_id", String, nullable=False)
