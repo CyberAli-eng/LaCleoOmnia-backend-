@@ -288,3 +288,7 @@ class ShopifyService:
                 },
                 headers=self.headers,
                 timeout=30.0
+            )
+            response.raise_for_status()
+            data = response.json()
+            return data.get("fulfillments", [])
