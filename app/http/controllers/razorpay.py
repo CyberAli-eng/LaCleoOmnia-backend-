@@ -105,12 +105,12 @@ async def sync_razorpay_settlements_endpoint(
     Sync Razorpay settlements and create settlement records
     """
     result = await sync_razorpay_settlements(db, days_back=days, user_id=current_user.id)
-        
-        return {
-            "message": f"Synced {result['synced']} Razorpay settlements",
-            "synced": result["synced"],
-            "errors": result["errors"]
-        }
+    
+    return {
+        "message": f"Synced {result['synced']} Razorpay settlements",
+        "synced": result["synced"],
+        "errors": result["errors"]
+    }
 
 
 @router.post("/reconcile")

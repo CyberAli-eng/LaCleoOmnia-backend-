@@ -4,6 +4,7 @@ Settlement automation worker - daily sync of payment and COD settlements
 import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any
+from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.database import SessionLocal
@@ -57,9 +58,9 @@ async def check_overdue_settlements(db: Session):
     Check for overdue settlements and mark them
     """
     from app.models import OrderFinance, Order
-    from sqlalchemy import func
+    from datetime import timedelta
     
-    # Check for settlements older than 7 days that are still pending
+    # Find settlements overdue by more than 7 days
     overdue_date = datetime.now(timezone.utc) - timedelta(days=7)
     
     overdue_settlements = db.query(OrderFinance).filter(
@@ -79,9 +80,12 @@ async def check_overdue_settlements(db: Session):
 
 def start_settlement_worker():
     """
-    Start the settlement worker - should be called from main.py
+    Start settlement worker - should be called from main.py
     """
     logger.info("Starting settlement worker service")
+    
+    # IST timezone for scheduling
+    IST = timezone(timedelta(hours=5, minutes=30))
     
     # Schedule daily sync at 2 AM IST
     import asyncio

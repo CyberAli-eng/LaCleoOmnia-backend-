@@ -28,6 +28,9 @@ from app.http.controllers import (
     profit,
     mock,
     finance,
+    settlements,
+    razorpay,
+    razorpay_webhooks,
 )
 
 logger = logging.getLogger(__name__)

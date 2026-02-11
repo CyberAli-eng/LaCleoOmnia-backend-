@@ -13,7 +13,7 @@ from app.database import get_db
 from app.models import Order, OrderFinance, OrderStatus
 from app.services.razorpay_service import get_razorpay_service
 from app.services.razorpay_sync import sync_razorpay_payments, sync_razorpay_settlements
-from app.services.settlement_worker import recompute_profit_for_settled_orders
+from app.services.profit_utils import recompute_profit_for_settled_orders
 from app.auth import get_current_user
 
 logger = logging.getLogger(__name__)
@@ -67,7 +67,7 @@ async def handle_razorpay_webhook(
 async def handle_payment_captured(
     payload: Dict[str, Any],
     db: Session,
-    razorpay_service: RazorpayService
+    razorpay_service: Any
 ) -> None:
     """
     Handle Razorpay payment.captured webhook event
@@ -133,7 +133,7 @@ async def handle_payment_captured(
 async def handle_settlement_processed(
     payload: Dict[str, Any],
     db: Session,
-    razorpay_service: RazorpayService
+    razorpay_service: Any
 ) -> None:
     """
     Handle Razorpay settlement.processed webhook event
@@ -204,7 +204,7 @@ async def handle_settlement_processed(
 async def handle_payout_processed(
     payload: Dict[str, Any],
     db: Session,
-    razorpay_service: RazorpayService
+    razorpay_service: Any
 ) -> None:
     """
     Handle Razorpay payout.processed webhook event (bank transfer confirmation)
