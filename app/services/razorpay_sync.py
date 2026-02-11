@@ -9,7 +9,7 @@ from decimal import Decimal
 from app.database import get_db
 from app.models import Order, OrderFinance, OrderStatus
 from app.services.razorpay_service import get_razorpay_service
-from app.services.settlement_worker import recompute_profit_for_settled_orders
+from app.services.profit_utils import recompute_profit_for_settled_orders
 
 logger = logging.getLogger(__name__)
 
