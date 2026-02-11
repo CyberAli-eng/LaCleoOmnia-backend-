@@ -30,7 +30,6 @@ def upgrade():
         sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
         sa.PrimaryKeyConstraint('id'),
         sa.ForeignKeyConstraint(['order_id'], 'orders.id', ondelete='CASCADE'),
-        sa.ForeignKeyConstraint(['channel_order_id'], 'orders.channel_order_id', ondelete='CASCADE'),
     )
     
     # Create indexes for performance
