@@ -158,13 +158,13 @@ async def get_order_finance(
 # P&L Report
 @router.get("/pnl")
 async def get_pnl_report(
-    period: Optional[str] = Query(None, description="7d, 30d, 90d, 1y"),
-    start_date: Optional[date] = Query(None),
-    end_date: Optional[date] = Query(None),
-    channel: Optional[str] = Query(None),
-    sku: Optional[str] = Query(None),
-    courier: Optional[str] = Query(None),
-    payment: Optional[str] = Query(None),
+    period: Optional[str] = None,
+    start_date: Optional[date] = None,
+    end_date: Optional[date] = None,
+    channel: Optional[str] = None,
+    sku: Optional[str] = None,
+    courier: Optional[str] = None,
+    payment: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -270,8 +270,8 @@ async def get_pnl_report(
 # Settlements
 @router.get("/settlements")
 async def get_settlements(
-    status: Optional[SettlementStatus] = Query(None),
-    partner: Optional[str] = Query(None),
+    status: Optional[SettlementStatus] = None,
+    partner: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -408,7 +408,7 @@ async def update_settlement(
 
 @router.get("/settlements/forecast")
 async def get_cashflow_forecast(
-    days: int = Query(30, ge=1, le=365),
+    days: int = 30,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):

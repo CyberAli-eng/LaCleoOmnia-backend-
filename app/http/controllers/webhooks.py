@@ -151,9 +151,9 @@ def _get_user_shop_domains(db: Session, user_id: str) -> list[str]:
 async def get_webhook_events(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-    limit: int = Query(50, le=100),
-    source: Optional[str] = Query(None),
-    topic: Optional[str] = Query(None),
+    limit: int = 50,
+    source: Optional[str] = None,
+    topic: Optional[str] = None,
 ):
     """Get persisted webhook events for the current user's connected shops only."""
     # Debug: Force new deployment
@@ -188,7 +188,7 @@ async def get_webhook_events(
 async def get_webhook_events_list(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-    limit: int = Query(50, le=100),
+    limit: int = 50,
 ):
     """Alias: get webhook events list."""
     return await get_webhook_events(db=db, current_user=current_user, limit=limit)
