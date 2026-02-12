@@ -5,9 +5,8 @@ import json
 import logging
 import uuid
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import Query as SQLAlchemyQuery
 from sse_starlette.sse import EventSourceResponse
 
 from app.database import get_db
@@ -152,9 +151,9 @@ def _get_user_shop_domains(db: Session, user_id: str) -> list[str]:
 async def get_webhook_events(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-    limit: int = SQLAlchemyQuery(50, le=100),
-    source: Optional[str] = SQLAlchemyQuery(None),
-    topic: Optional[str] = SQLAlchemyQuery(None),
+    limit: int = Query(50, le=100),
+    source: Optional[str] = Query(None),
+    topic: Optional[str] = Query(None),
 ):
     """Get persisted webhook events for the current user's connected shops only."""
     user_shops = _get_user_shop_domains(db, str(current_user.id))
@@ -188,7 +187,7 @@ async def get_webhook_events(
 async def get_webhook_events_list(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-    limit: int = SQLAlchemyQuery(50, le=100),
+    limit: int = Query(50, le=100),
 ):
     """Alias: get webhook events list."""
     return await get_webhook_events(db=db, current_user=current_user, limit=limit)

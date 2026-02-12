@@ -1,10 +1,9 @@
 """
 Finance API Routes - Comprehensive financial endpoints
 """
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from sqlalchemy import Query as SQLAlchemyQuery
 from typing import Optional, List
 from datetime import date, timedelta, datetime
 from pydantic import BaseModel
@@ -159,13 +158,13 @@ async def get_order_finance(
 # P&L Report
 @router.get("/pnl")
 async def get_pnl_report(
-    period: Optional[str] = SQLAlchemyQuery(None, description="7d, 30d, 90d, 1y"),
-    start_date: Optional[date] = SQLAlchemyQuery(None),
-    end_date: Optional[date] = SQLAlchemyQuery(None),
-    channel: Optional[str] = SQLAlchemyQuery(None),
-    sku: Optional[str] = SQLAlchemyQuery(None),
-    courier: Optional[str] = SQLAlchemyQuery(None),
-    payment: Optional[str] = SQLAlchemyQuery(None),
+    period: Optional[str] = Query(None, description="7d, 30d, 90d, 1y"),
+    start_date: Optional[date] = Query(None),
+    end_date: Optional[date] = Query(None),
+    channel: Optional[str] = Query(None),
+    sku: Optional[str] = Query(None),
+    courier: Optional[str] = Query(None),
+    payment: Optional[str] = Query(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -271,8 +270,8 @@ async def get_pnl_report(
 # Settlements
 @router.get("/settlements")
 async def get_settlements(
-    status: Optional[SettlementStatus] = SQLAlchemyQuery(None),
-    partner: Optional[str] = SQLAlchemyQuery(None),
+    status: Optional[SettlementStatus] = Query(None),
+    partner: Optional[str] = Query(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -409,7 +408,7 @@ async def update_settlement(
 
 @router.get("/settlements/forecast")
 async def get_cashflow_forecast(
-    days: int = SQLAlchemyQuery(30, ge=1, le=365),
+    days: int = Query(30, ge=1, le=365),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):

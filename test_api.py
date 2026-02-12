@@ -66,7 +66,7 @@ def test_integrations_status(token):
     print("\n=== Testing Integrations Status ===")
     try:
         headers = {"Authorization": f"Bearer {token}"}
-        response = requests.get(f"{BASE_URL}/api/integrations/providers/shopify/status", headers=headers)
+        response = requests.get(f"{BASE_URL}/api/integrations/shopify/status", headers=headers)
         print(f"Status: {response.status_code}")
         print(f"Response: {response.json()}")
     except Exception as e:
