@@ -1072,22 +1072,11 @@ async def shopify_sync_orders(
     if not account:
         raise HTTPException(status_code=401, detail="Shopify not connected. Connect via OAuth first.")
     try:
-        # Fetch both NEW and FULFILLED orders from Shopify
-        logger.info("Fetching orders from Shopify...")
-        raw_orders_new = await get_orders_raw(
+        raw_orders = await get_orders_raw(
             integration.shop_domain,
             integration.access_token,
-            limit=125,
-            fulfillment_status="unfulfilled"
+            limit=250,
         )
-        raw_orders_fulfilled = await get_orders_raw(
-            integration.shop_domain,
-            integration.access_token,
-            limit=125,
-            fulfillment_status="fulfilled"
-        )
-        raw_orders = raw_orders_new + raw_orders_fulfilled
-        logger.info(f"Found {len(raw_orders_new)} unfulfilled and {len(raw_orders_fulfilled)} fulfilled orders from Shopify")
     except Exception as e:
         logger.exception("Shopify API error in sync/orders: %s", e)
         raise HTTPException(
@@ -1100,42 +1089,6 @@ async def shopify_sync_orders(
             shopify_id = str(o.get("id") or "")
             if not shopify_id:
                 continue
-            # Determine order status from Shopify fulfillment status
-            shopify_fulfillment_status = (o.get("fulfillment_status") or "").lower()
-            if shopify_fulfillment_status == "fulfilled":
-                order_status = OrderStatus.SHIPPED
-            elif shopify_fulfillment_status == "partial":
-                order_status = OrderStatus.PACKED
-            else:
-                order_status = OrderStatus.NEW
-
-            # Check if order already exists
-            existing = db.query(Order).filter(
-                Order.channel_id == channel.id,
-                Order.channel_account_id == account.id,
-                Order.channel_order_id == shopify_id,
-            ).first()
-            
-            if existing:
-                # Update existing order if status changed
-                if existing.status != order_status:
-                    existing.status = order_status
-                    updated += 1
-                    logger.info(f"Updated order {shopify_id} status: {existing.status} -> {order_status}")
-                else:
-                    logger.info(f"Order {shopify_id} already exists with status {existing.status}")
-                    
-                # Extract tracking data for fulfilled orders
-                if shopify_fulfillment_status == "fulfilled":
-                    fulfillments = o.get("fulfillments", [])
-                    for fulfillment in fulfillments:
-                        tracking_number = fulfillment.get("tracking_number")
-                        if tracking_number:
-                            logger.info(f"Found tracking {tracking_number} for order {shopify_id}")
-                            # TODO: Store tracking data in shipments table
-                
-                continue
-
             # Customer name from billing or email
             billing = o.get("billing_address") or {}
             first = (billing.get("first_name") or "").strip()
