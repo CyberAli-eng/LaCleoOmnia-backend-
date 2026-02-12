@@ -121,7 +121,8 @@ def compute_order_finance(db: Session, order_id: str) -> OrderFinance:
         finance = OrderFinance(
             order_id=order_id,
             payment_type=payment_type,
-            fulfilment_status=fulfilment_status
+            fulfilment_status=fulfilment_status,
+            profit_status=ProfitStatus.PROFIT  # Set default to avoid NULL constraint
         )
         db.add(finance)
         db.flush()
