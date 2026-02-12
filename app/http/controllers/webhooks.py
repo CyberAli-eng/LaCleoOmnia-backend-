@@ -156,6 +156,7 @@ async def get_webhook_events(
     topic: Optional[str] = Query(None),
 ):
     """Get persisted webhook events for the current user's connected shops only."""
+    # Debug: Force new deployment
     user_shops = _get_user_shop_domains(db, str(current_user.id))
     query = db.query(WebhookEvent).order_by(WebhookEvent.created_at.desc())
     # Restrict to events for this user's shop(s); if no shops connected, return empty
