@@ -687,14 +687,15 @@ async def get_pending_selloship_orders(db) -> list:
     return orders
 
 
-async def fetch_selloship_order_list() -> list:
+async def fetch_selloship_order_list(db) -> list:
     """
     Fetch order list from Selloship to find mapping between channel_order_id and selloship_order_id.
     """
     from app.services.credentials import get_provider_credentials
     
     try:
-        creds = await get_provider_credentials("selloship")
+        # Use system user ID for background worker
+        creds = get_provider_credentials(db, "system", "selloship")
         if not creds or not creds.get("token"):
             logger.error("[AWB_SYNC] No Selloship credentials found")
             return []
@@ -739,14 +740,15 @@ async def fetch_selloship_order_list() -> list:
         return []
 
 
-async def fetch_awb_for_order(selloship_order_id: str) -> str:
+async def fetch_awb_for_order(db, selloship_order_id: str) -> str:
     """
     Fetch AWB for a specific Selloship order.
     """
     from app.services.credentials import get_provider_credentials
     
     try:
-        creds = await get_provider_credentials("selloship")
+        # Use system user ID for background worker
+        creds = get_provider_credentials(db, "system", "selloship")
         if not creds or not creds.get("token"):
             return None
         
@@ -884,7 +886,7 @@ async def process_awb_discovery_batch(db, batch_size: int = 50):
     logger.info(f"[AWB_SYNC] Processing {len(pending_orders)} pending orders")
     
     # Get Selloship order list
-    selloship_orders = await fetch_selloship_order_list()
+    selloship_orders = await fetch_selloship_order_list(db)
     
     # Create mapping between channel_order_id and selloship_order_id
     order_mapping = {}
@@ -914,7 +916,7 @@ async def process_awb_discovery_batch(db, batch_size: int = 50):
                         mapping.last_checked = datetime.now(timezone.utc)
                     
                     # Fetch AWB
-                    awb = await fetch_awb_for_order(selloship_order_id)
+                    awb = await fetch_awb_for_order(db, selloship_order_id)
                     
                     if awb:
                         success = await update_selloship_mapping(db, order.id, selloship_order_id, awb)
