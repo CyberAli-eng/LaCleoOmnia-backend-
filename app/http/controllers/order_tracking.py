@@ -32,7 +32,7 @@ async def sync_order_tracking(
             raise HTTPException(status_code=404, detail="Shopify not connected")
         
         # Initialize services
-        shopify_service = ShopifyService(shopify_integration.channel_account)
+        shopify_service = ShopifyService(shopify_integration)
         selloship_service = SelloshipService()
         
         # Get user's orders
