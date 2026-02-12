@@ -1241,33 +1241,13 @@ async def shopify_sync(
             first = (billing.get("first_name") or "").strip()
             last = (billing.get("last_name") or "").strip()
             customer_name = f"{first} {last}".strip() if (first or last) else (o.get("email") or "Customer")[:100]
-            customer_email = (o.get("email") or "").strip() or None
-            total = float(o.get("total_price", 0) or 0)
-            financial = (o.get("financial_status") or "").lower()
-            payment_mode = PaymentMode.PREPAID if financial == "paid" else PaymentMode.COD
-            shipping_addr = _format_address(o.get("shipping_address"))
-            billing_addr = _format_address(o.get("billing_address"))
-            order = Order(
-                channel_id=channel.id,
-                channel_account_id=account.id,
-                channel_order_id=shopify_id,
-                customer_name=customer_name[:255],
-                customer_email=customer_email[:255] if customer_email else None,
-                shipping_address=shipping_addr,
-                billing_address=billing_addr,
-                payment_mode=payment_mode,
-                order_total=Decimal(str(total)),
-                status=OrderStatus.NEW,
-            )
-            db.add(order)
-            db.flush()
             for line in o.get("line_items") or []:
                 sku = (line.get("sku") or str(line.get("variant_id") or "") or "—")[:64]
                 title = (line.get("title") or "Item")[:255]
                 qty = int(line.get("quantity", 0) or 0)
                 price = float(line.get("price", 0) or 0)
                 db.add(OrderItem(
-                    order_id=order.id,
+                    order_id=order.id if not existing else existing.id,
                     sku=sku,
                     title=title,
                     qty=qty,
