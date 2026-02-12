@@ -671,3 +671,30 @@ class SelloshipMapping(Base):
         Index("ix_selloship_mappings_awb", "awb"),
         Index("ix_selloship_mappings_last_checked", "last_checked"),
     )
+
+
+class OrderShipment(Base):
+    """Shopify-centric shipment tracking table"""
+    __tablename__ = "order_shipments"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    order_id = Column("order_id", String, ForeignKey("orders.id", ondelete="CASCADE"), nullable=False, index=True)
+    shopify_fulfillment_id = Column("shopify_fulfillment_id", String, nullable=True, index=True)
+    tracking_number = Column("tracking_number", String, nullable=True, index=True)
+    courier = Column("courier", String, nullable=True)
+    fulfillment_status = Column("fulfillment_status", String, nullable=True)  # Shopify fulfillment status
+    delivery_status = Column("delivery_status", String, nullable=True)  # Shopify delivery status
+    selloship_status = Column("selloship_status", String, nullable=True)  # Selloship enrichment status
+    last_synced_at = Column("last_synced_at", DateTime(timezone=True), nullable=True, index=True)
+    created_at = Column("created_at", DateTime(timezone=True), server_default=func.now())
+    updated_at = Column("updated_at", DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    # Relationships
+    order = relationship("Order", backref=backref("order_shipments", cascade="all, delete-orphan"))
+
+    __table_args__ = (
+        Index("ix_order_shipments_order_id", "order_id"),
+        Index("ix_order_shipments_tracking_number", "tracking_number"),
+        Index("ix_order_shipments_shopify_fulfillment_id", "shopify_fulfillment_id"),
+        Index("ix_order_shipments_last_synced_at", "last_synced_at"),
+    )

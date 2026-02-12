@@ -10,7 +10,7 @@ from sqlalchemy import func
 
 from app.models import (
     Order, OrderFinance, OrderExpense, OrderSettlement, CustomerRisk,
-    OrderItem, Shipment, SkuCost,
+    OrderItem, Shipment, SkuCost, OrderShipment,
     PaymentType, FulfilmentStatus, ProfitStatus, ExpenseType, ExpenseSource, SettlementStatus, RiskTag,
     ExpenseRule, ExpenseRuleValueType
 )
@@ -18,6 +18,81 @@ from app.services.credentials import decrypt_token
 import json
 
 logger = logging.getLogger(__name__)
+
+
+class FinanceEngine:
+    """Finance Engine with Shopify-centric shipment status integration"""
+    
+    def __init__(self, db: Session):
+        self.db = db
+    
+    async def recompute_order_finance(self, order_id: str) -> Dict:
+        """
+        Recompute finance for an order based on current shipment status
+        """
+        try:
+            finance = compute_order_finance(self.db, order_id)
+            return {
+                "status": "SUCCESS",
+                "order_id": order_id,
+                "fulfilment_status": finance.fulfilment_status.value,
+                "profit_status": finance.profit_status.value,
+                "net_profit": float(finance.net_profit),
+                "revenue_realized": float(finance.revenue_realized)
+            }
+        except Exception as e:
+            logger.error(f"Failed to recompute finance for order {order_id}: {e}")
+            return {
+                "status": "FAILED",
+                "order_id": order_id,
+                "error": str(e)
+            }
+    
+    async def recompute_finance_for_shipment_status_change(self, shipment_id: str) -> Dict:
+        """
+        Trigger finance recompute when shipment status changes
+        """
+        shipment = self.db.query(OrderShipment).filter(OrderShipment.id == shipment_id).first()
+        if not shipment:
+            return {"status": "FAILED", "error": f"Shipment {shipment_id} not found"}
+        
+        return await self.recompute_order_finance(shipment.order_id)
+    
+    async def finalize_profit_on_delivery(self, shipment_id: str) -> Dict:
+        """
+        Finalize profit when order is delivered
+        """
+        shipment = self.db.query(OrderShipment).filter(OrderShipment.id == shipment_id).first()
+        if not shipment:
+            return {"status": "FAILED", "error": f"Shipment {shipment_id} not found"}
+        
+        if shipment.delivery_status != 'DELIVERED':
+            return {"status": "FAILED", "error": f"Shipment {shipment_id} is not delivered"}
+        
+        result = await self.recompute_order_finance(shipment.order_id)
+        
+        if result.get("status") == "SUCCESS":
+            logger.info(f"Profit finalized for delivered order {shipment.order_id}: {result.get('net_profit', 0)}")
+        
+        return result
+    
+    async def book_loss_on_rto(self, shipment_id: str) -> Dict:
+        """
+        Book loss when order is RTO
+        """
+        shipment = self.db.query(OrderShipment).filter(OrderShipment.id == shipment_id).first()
+        if not shipment:
+            return {"status": "FAILED", "error": f"Shipment {shipment_id} not found"}
+        
+        if shipment.delivery_status not in ['RTO', 'RTO_INITIATED', 'RTO_DONE']:
+            return {"status": "FAILED", "error": f"Shipment {shipment_id} is not RTO"}
+        
+        result = await self.recompute_order_finance(shipment.order_id)
+        
+        if result.get("status") == "SUCCESS":
+            logger.info(f"Loss booked for RTO order {shipment.order_id}: {result.get('net_profit', 0)}")
+        
+        return result
 
 
 def compute_order_finance(db: Session, order_id: str) -> OrderFinance:
@@ -34,7 +109,7 @@ def compute_order_finance(db: Session, order_id: str) -> OrderFinance:
     
     # Determine payment type and fulfilment status
     payment_type = _determine_payment_type(order)
-    fulfilment_status = _determine_fulfilment_status(order)
+    fulfilment_status = _determine_fulfilment_status(db, order)
     
     # Calculate revenue based on PRD rules
     revenue_realized = _calculate_revenue(order, payment_type, fulfilment_status)
@@ -88,8 +163,30 @@ def _determine_payment_type(order: Order) -> PaymentType:
     return PaymentType.PREPAID
 
 
-def _determine_fulfilment_status(order: Order) -> FulfilmentStatus:
-    """Determine fulfilment status from order data"""
+def _determine_fulfilment_status(db: Session, order: Order) -> FulfilmentStatus:
+    """Determine fulfilment status from OrderShipment data (Shopify-centric)"""
+    from app.models import OrderShipment
+    
+    # Check OrderShipment table first (new Shopify-centric approach)
+    shipments = db.query(OrderShipment).filter(OrderShipment.order_id == order.id).all()
+    
+    if shipments:
+        # Use the most recent shipment's delivery status
+        latest_shipment = max(shipments, key=lambda s: s.updated_at or s.created_at)
+        delivery_status = latest_shipment.delivery_status
+        
+        if delivery_status:
+            status = delivery_status.upper()
+            if status == 'DELIVERED':
+                return FulfilmentStatus.DELIVERED
+            elif status in ['RTO', 'RTO_INITIATED', 'RTO_DONE']:
+                return FulfilmentStatus.RTO
+            elif status == 'CANCELLED':
+                return FulfilmentStatus.CANCELLED
+            elif status in ['IN_TRANSIT', 'SHIPPED']:
+                return FulfilmentStatus.IN_TRANSIT
+    
+    # Fallback to legacy order status for backward compatibility
     if hasattr(order, 'status') and order.status:
         status = order.status.value.upper()
         if status == 'DELIVERED':

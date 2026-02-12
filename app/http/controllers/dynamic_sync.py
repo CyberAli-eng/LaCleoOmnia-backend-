@@ -10,6 +10,7 @@ from app.auth import get_current_user
 from app.services.dynamic_shopify_sync import (
     sync_shopify_dynamically, 
     sync_shipment_status_dynamically,
+    sync_existing_orders_with_tracking,
     DynamicShopifySync
 )
 from typing import Dict, Any
@@ -66,6 +67,31 @@ async def sync_shipments_endpoint(
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Shipment sync failed: {str(e)}")
+
+@router.post("/existing-orders")
+async def sync_existing_orders_endpoint(
+    limit: int = 250,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+) -> Dict[str, Any]:
+    """
+    Sync existing orders in database that might have tracking numbers in Shopify
+    This addresses orders that are already in your database but weren't properly synced
+    """
+    try:
+        result = await sync_existing_orders_with_tracking(db, limit=limit)
+        
+        if result.get("status") == "FAILED":
+            raise HTTPException(status_code=500, detail=result.get("error"))
+        
+        return {
+            "success": True,
+            "message": result.get("message", "Existing orders sync completed"),
+            "data": result
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Existing orders sync failed: {str(e)}")
 
 @router.post("/full")
 async def full_sync_endpoint(

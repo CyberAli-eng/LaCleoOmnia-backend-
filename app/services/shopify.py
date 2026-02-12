@@ -3,8 +3,11 @@ Shopify API service
 """
 import httpx
 import os
+import logging
 from app.models import ChannelAccount
 from app.services.credentials import decrypt_token
+
+logger = logging.getLogger(__name__)
 
 class ShopifyService:
     def __init__(self, account: ChannelAccount = None):
@@ -182,8 +185,59 @@ class ShopifyService:
             )
             response.raise_for_status()
             data = response.json()
-            return data.get("orders", [])
+            orders = data.get("orders", [])
+            
+            # Fetch fulfillments for each order to get tracking numbers
+            for order in orders:
+                if order.get("fulfillment_status") in ["fulfilled", "partial"]:
+                    try:
+                        fulfillment_response = await client.get(
+                            f"{self.base_url}/orders/{order['id']}/fulfillments.json",
+                            headers=self.headers,
+                            timeout=30.0
+                        )
+                        fulfillment_response.raise_for_status()
+                        fulfillment_data = fulfillment_response.json()
+                        order["fulfillments"] = fulfillment_data.get("fulfillments", [])
+                    except Exception as e:
+                        logger.warning(f"Failed to fetch fulfillments for order {order['id']}: {e}")
+                        order["fulfillments"] = []
+                else:
+                    order["fulfillments"] = []
+                    
+            return orders
     
+    async def get_single_order(self, order_id: str) -> dict:
+        """Get a single order with fulfillments from Shopify"""
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"{self.base_url}/orders/{order_id}.json",
+                headers=self.headers,
+                timeout=30.0
+            )
+            response.raise_for_status()
+            data = response.json()
+            order = data.get("order", {})
+            
+            # Fetch fulfillments for this order
+            if order.get("fulfillment_status") in ["fulfilled", "partial"]:
+                try:
+                    fulfillment_response = await client.get(
+                        f"{self.base_url}/orders/{order_id}/fulfillments.json",
+                        headers=self.headers,
+                        timeout=30.0
+                    )
+                    fulfillment_response.raise_for_status()
+                    fulfillment_data = fulfillment_response.json()
+                    order["fulfillments"] = fulfillment_data.get("fulfillments", [])
+                except Exception as e:
+                    logger.warning(f"Failed to fetch fulfillments for order {order_id}: {e}")
+                    order["fulfillments"] = []
+            else:
+                order["fulfillments"] = []
+                
+            return order
+
     async def get_all_orders(self, limit: int = 250) -> list:
         """Get ALL orders from Shopify (fulfilled and unfulfilled)"""
         return await self.get_orders(limit=limit, fulfillment_status="any")
@@ -274,7 +328,7 @@ class ShopifyService:
             response.raise_for_status()
             data = response.json()
             return data.get("fulfillments", [])
-    
+
     async def get_all_fulfillments(self, limit: int = 50) -> list:
         """Get all recent fulfillments from Shopify"""
         if not self.account or not self.base_url:
