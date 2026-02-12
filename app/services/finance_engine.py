@@ -117,6 +117,7 @@ def compute_order_finance(db: Session, order_id: str) -> OrderFinance:
     # Get or create OrderFinance record
     finance = db.query(OrderFinance).filter(OrderFinance.order_id == order_id).first()
     if not finance:
+        logger.info(f"Creating new OrderFinance for order {order_id}")
         finance = OrderFinance(
             order_id=order_id,
             payment_type=payment_type,
@@ -124,6 +125,9 @@ def compute_order_finance(db: Session, order_id: str) -> OrderFinance:
         )
         db.add(finance)
         db.flush()
+        logger.info(f"Created OrderFinance: id={finance.id}, profit_status={finance.profit_status}")
+    else:
+        logger.info(f"Found existing OrderFinance: id={finance.id}, profit_status={finance.profit_status}")
     
     # Update finance fields
     finance.order_value = Decimal(str(order.total_amount or 0))
@@ -137,7 +141,11 @@ def compute_order_finance(db: Session, order_id: str) -> OrderFinance:
     # Calculate profit
     net_profit = revenue_realized - total_expense
     finance.net_profit = net_profit
-    finance.profit_status = ProfitStatus.PROFIT if net_profit > 0 else ProfitStatus.LOSS
+    
+    # Debug: Check profit status assignment
+    profit_status_value = ProfitStatus.PROFIT if net_profit > 0 else ProfitStatus.LOSS
+    logger.info(f"Profit calculation: net_profit={net_profit}, profit_status={profit_status_value}, profit_status.value={profit_status_value.value}")
+    finance.profit_status = profit_status_value
     
     # Create settlements
     _create_order_settlements(db, order, finance.id)
