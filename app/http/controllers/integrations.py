@@ -1108,6 +1108,17 @@ async def shopify_sync_orders(
             else:
                 order_status = OrderStatus.NEW
 
+            order = Order(
+                channel_id=channel.id,
+                channel_account_id=account.id,
+                channel_order_id=shopify_id,
+                customer_name=customer_name[:255],
+                customer_email=customer_email[:255] if customer_email else None,
+                payment_mode=payment_mode,
+                order_total=Decimal(str(total)),
+                status=order_status,
+            )
+            
             # Check if order already exists
             existing = db.query(Order).filter(
                 Order.channel_id == channel.id,
@@ -1126,28 +1137,20 @@ async def shopify_sync_orders(
                 
                 updated += 1
                 logger.info(f"Updated existing order {shopify_id} with status {order_status}")
+                order_id = existing.id
             else:
                 # Create new order
-                order = Order(
-                    channel_id=channel.id,
-                    channel_account_id=account.id,
-                    channel_order_id=shopify_id,
-                    customer_name=customer_name[:255],
-                    customer_email=customer_email[:255] if customer_email else None,
-                    payment_mode=payment_mode,
-                    order_total=Decimal(str(total)),
-                    status=order_status,
-                )
                 db.add(order)
                 inserted += 1
                 logger.info(f"Created new order {shopify_id} with status {order_status}")
+                order_id = order.id
             for line in o.get("line_items") or []:
                 sku = (line.get("sku") or str(line.get("variant_id") or "") or "—")[:64]
                 title = (line.get("title") or "Item")[:255]
                 qty = int(line.get("quantity", 0) or 0)
                 price = float(line.get("price", 0) or 0)
                 db.add(OrderItem(
-                    order_id=order.id if not existing else existing.id,
+                    order_id=order_id,
                     sku=sku,
                     title=title,
                     qty=qty,
