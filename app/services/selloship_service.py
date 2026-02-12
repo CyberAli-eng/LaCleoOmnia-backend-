@@ -695,9 +695,14 @@ async def fetch_selloship_order_list(db) -> list:
     
     try:
         # Use system user ID for background worker
+        logger.info(f"[AWB_SYNC] Looking for Selloship credentials with user_id='system', provider_id='selloship'")
         creds = get_provider_credentials(db, "system", "selloship")
         if not creds or not creds.get("token"):
-            logger.error("[AWB_SYNC] No Selloship credentials found")
+            logger.error("[AWB_SYNC] No Selloship credentials found for user_id='system', provider_id='selloship'")
+            logger.error("[AWB_SYNC] Please ensure provider_credentials table has entry with:")
+            logger.error("[AWB_SYNC]   user_id = 'system'")
+            logger.error("[AWB_SYNC]   provider_id = 'selloship'")
+            logger.error("[AWB_SYNC]   value_encrypted = encrypted JSON with 'token' and 'base_url'")
             return []
         
         headers = {"Authorization": f"Bearer {creds['token']}"}
@@ -748,8 +753,10 @@ async def fetch_awb_for_order(db, selloship_order_id: str) -> str:
     
     try:
         # Use system user ID for background worker
+        logger.info(f"[AWB_SYNC] Looking for Selloship credentials with user_id='system', provider_id='selloship'")
         creds = get_provider_credentials(db, "system", "selloship")
         if not creds or not creds.get("token"):
+            logger.error("[AWB_SYNC] No Selloship credentials found for user_id='system', provider_id='selloship'")
             return None
         
         headers = {"Authorization": f"Bearer {creds['token']}"}
