@@ -117,13 +117,17 @@ def _order_customer_name(o: dict) -> str:
     return (o.get("email") or "").strip() or "—"
 
 
-async def get_orders_raw(shop_domain: str, access_token: str, limit: int = 250) -> list[dict]:
+async def get_orders_raw(shop_domain: str, access_token: str, limit: int = 250, fulfillment_status: str = "any") -> list[dict]:
     """Fetch raw orders from Shopify for sync (full payload including line_items)."""
     url = f"{_base_url(shop_domain)}/orders.json"
+    params = {"status": "any", "limit": limit}
+    if fulfillment_status != "any":
+        params["fulfillment_status"] = fulfillment_status
+    
     async with httpx.AsyncClient() as client:
         response = await client.get(
             url,
-            params={"status": "any", "limit": limit},
+            params=params,
             headers=_headers(access_token),
             timeout=30.0,
         )

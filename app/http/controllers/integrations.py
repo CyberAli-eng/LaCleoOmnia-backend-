@@ -1072,11 +1072,22 @@ async def shopify_sync_orders(
     if not account:
         raise HTTPException(status_code=401, detail="Shopify not connected. Connect via OAuth first.")
     try:
-        raw_orders = await get_orders_raw(
+        # Fetch both NEW and FULFILLED orders from Shopify
+        logger.info("Fetching orders from Shopify...")
+        raw_orders_new = await get_orders_raw(
             integration.shop_domain,
             integration.access_token,
-            limit=250,
+            limit=125,
+            fulfillment_status="unfulfilled"
         )
+        raw_orders_fulfilled = await get_orders_raw(
+            integration.shop_domain,
+            integration.access_token,
+            limit=125,
+            fulfillment_status="fulfilled"
+        )
+        raw_orders = raw_orders_new + raw_orders_fulfilled
+        logger.info(f"Found {len(raw_orders_new)} unfulfilled and {len(raw_orders_fulfilled)} fulfilled orders from Shopify")
     except Exception as e:
         logger.exception("Shopify API error in sync/orders: %s", e)
         raise HTTPException(
@@ -1107,6 +1118,15 @@ async def shopify_sync_orders(
             total = float(o.get("total_price", 0) or 0)
             financial = (o.get("financial_status") or "").lower()
             payment_mode = PaymentMode.PREPAID if financial == "paid" else PaymentMode.COD
+            
+            # Determine order status from Shopify fulfillment status
+            shopify_fulfillment_status = (o.get("fulfillment_status") or "").lower()
+            if shopify_fulfillment_status == "fulfilled":
+                order_status = OrderStatus.SHIPPED
+            elif shopify_fulfillment_status == "partial":
+                order_status = OrderStatus.PACKED
+            else:
+                order_status = OrderStatus.NEW
 
             order = Order(
                 channel_id=channel.id,
@@ -1116,7 +1136,7 @@ async def shopify_sync_orders(
                 customer_email=customer_email[:255] if customer_email else None,
                 payment_mode=payment_mode,
                 order_total=Decimal(str(total)),
-                status=OrderStatus.NEW,
+                status=order_status,
             )
             db.add(order)
             db.flush()
