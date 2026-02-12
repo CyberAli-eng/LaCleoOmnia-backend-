@@ -120,38 +120,38 @@ class SelloshipCODSettlement(CODSettlementProvider):
             return []
         
         try:
-            # Selloship COD remittance endpoint
-            url = f"{self.base_url}/cod/remittances"
+            # Selloship waybill details endpoint for tracking
+            url = f"{self.base_url}/waybillDetails"
             params = {
-                "start_date": start_date.strftime("%Y-%m-%d"),
-                "end_date": end_date.strftime("%Y-%m-%d")
+                "from": start_date.strftime("%d-%b-%Y %H:%M:%S"),
+                "to": end_date.strftime("%d-%b-%Y %H:%M:%S")
             }
             
             async with get_with_retry(url, params=params, headers=headers, timeout=30.0) as response:
                 if response.status_code != 200:
-                    logger.warning("Selloship COD remittances API error: %s", response.status_code)
+                    logger.warning("Selloship waybillDetails API error: %s", response.status_code)
                     return []
                 
                 data = response.json()
-                remittances = data.get("remittances", [])
+                waybills = data.get("waybills", [])
                 
-                # Normalize remittance data
+                # Normalize waybill data to remittance format
                 normalized = []
-                for rem in remittances:
+                for waybill in waybills:
                     normalized.append({
-                        "awb": rem.get("awb"),
-                        "order_id": rem.get("order_id"),
-                        "cod_amount": float(rem.get("cod_amount", 0)),
-                        "shipping_charge": float(rem.get("shipping_charge", 0)),
-                        "remittance_date": rem.get("remittance_date"),
-                        "status": rem.get("status", "PENDING"),
-                        "utr": rem.get("utr")
+                        "awb": waybill.get("awb"),
+                        "order_id": waybill.get("order_id"),
+                        "cod_amount": float(waybill.get("cod_amount", 0)),
+                        "shipping_charge": float(waybill.get("shipping_charge", 0)),
+                        "remittance_date": waybill.get("updated_at"),
+                        "status": waybill.get("status", "PENDING"),
+                        "utr": waybill.get("utr")
                     })
                 
                 return normalized
                 
         except Exception as e:
-            logger.error("Selloship COD remittances fetch failed: %s", e)
+            logger.error("Selloship waybillDetails fetch failed: %s", e)
             return []
 
 

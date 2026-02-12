@@ -181,6 +181,14 @@ def process_shopify_webhook(
             order_id = _upsert_order_from_payload(db, shop_domain, payload)
             if order_id:
                 compute_profit_for_order(db, order_id)
+                
+                # Broadcast real-time order update
+                from app.services.realtime_service import realtime_service
+                import asyncio
+                asyncio.create_task(realtime_service.broadcast_order_update(
+                    db, order_id, "webhook_update"
+                ))
+                
                 logger.info("Webhook %s: upserted order %s and recomputed profit", topic, order_id)
         elif topic == "orders/cancelled":
             shopify_id = str(payload.get("id") or "")
@@ -196,6 +204,14 @@ def process_shopify_webhook(
                         order.status = OrderStatus.CANCELLED
                         db.flush()
                         compute_profit_for_order(db, order.id)
+                        
+                        # Broadcast real-time order update
+                        from app.services.realtime_service import realtime_service
+                        import asyncio
+                        asyncio.create_task(realtime_service.broadcast_order_update(
+                            db, order.id, "order_cancelled"
+                        ))
+                        
                         logger.info("Webhook orders/cancelled: cancelled order %s", order.id)
         elif topic == "refunds/create":
             order_id_shopify = payload.get("order_id")
