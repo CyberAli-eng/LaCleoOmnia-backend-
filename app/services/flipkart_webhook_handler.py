@@ -42,7 +42,7 @@ def verify_flipkart_webhook(payload: bytes, signature: str, secret: str) -> bool
         logger.warning("Flipkart webhook signature verification failed: %s", e)
         return False
 
-def process_flipkart_webhook(
+async def process_flipkart_webhook(
     db: Session,
     seller_id: str,
     event_type: str,
