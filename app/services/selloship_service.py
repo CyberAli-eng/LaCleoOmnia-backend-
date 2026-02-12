@@ -193,6 +193,22 @@ async def fetch_selloship_token(
     return None
 
 
+def get_user_selloship_client(db, user_id: str) -> Optional["SelloshipService"]:
+    """
+    Get Selloship client for a specific user using their stored credentials
+    """
+    from app.services.credentials import get_provider_credentials
+    
+    creds = get_provider_credentials(db, user_id, "selloship")
+    if not creds or not creds.get("token"):
+        return None
+    
+    return SelloshipService(
+        api_key=creds["token"],
+        base_url=creds.get("base_url", "https://selloship.com/api/lock_actvs/channels")
+    )
+
+
 def get_selloship_client(
     api_key: Optional[str] = None,
     username: Optional[str] = None,
@@ -687,25 +703,21 @@ async def get_pending_selloship_orders(db) -> list:
     return orders
 
 
-async def fetch_selloship_order_list(db) -> list:
+async def fetch_selloship_order_list(db, user_id: str) -> list:
     """
     Fetch order list from Selloship to find mapping between channel_order_id and selloship_order_id.
     """
     from app.services.credentials import get_provider_credentials
     
     try:
-        # Use system user ID for background worker
-        logger.info(f"[AWB_SYNC] Looking for Selloship credentials with user_id='system', provider_id='selloship'")
-        creds = get_provider_credentials(db, "system", "selloship")
+        # Use the actual user's credentials
+        logger.info(f"[AWB_SYNC] Looking for Selloship credentials with user_id='{user_id}', provider_id='selloship'")
+        creds = get_provider_credentials(db, user_id, "selloship")
         if not creds or not creds.get("token"):
-            logger.error("[AWB_SYNC] No Selloship credentials found for user_id='system', provider_id='selloship'")
-            logger.error("[AWB_SYNC] Please ensure provider_credentials table has entry with:")
-            logger.error("[AWB_SYNC]   user_id = 'system'")
-            logger.error("[AWB_SYNC]   provider_id = 'selloship'")
-            logger.error("[AWB_SYNC]   value_encrypted = encrypted JSON with 'token' and 'base_url'")
+            logger.error(f"[AWB_SYNC] No Selloship credentials found for user_id='{user_id}', provider_id='selloship'")
             return []
         
-        headers = {"Authorization": f"Bearer {creds['token']}"}
+        headers = {"Authorization": f"apikey {creds['token']}", "Content-Type": "application/json"}
         logger.info(f"[AWB_SYNC] Fetching order list from Selloship")
         
         # Try different endpoints to get order list
@@ -745,21 +757,21 @@ async def fetch_selloship_order_list(db) -> list:
         return []
 
 
-async def fetch_awb_for_order(db, selloship_order_id: str) -> str:
+async def fetch_awb_for_order(db, user_id: str, selloship_order_id: str) -> str:
     """
     Fetch AWB for a specific Selloship order.
     """
     from app.services.credentials import get_provider_credentials
     
     try:
-        # Use system user ID for background worker
-        logger.info(f"[AWB_SYNC] Looking for Selloship credentials with user_id='system', provider_id='selloship'")
-        creds = get_provider_credentials(db, "system", "selloship")
+        # Use the actual user's credentials
+        logger.info(f"[AWB_SYNC] Looking for Selloship credentials with user_id='{user_id}', provider_id='selloship'")
+        creds = get_provider_credentials(db, user_id, "selloship")
         if not creds or not creds.get("token"):
-            logger.error("[AWB_SYNC] No Selloship credentials found for user_id='system', provider_id='selloship'")
+            logger.error(f"[AWB_SYNC] No Selloship credentials found for user_id='{user_id}', provider_id='selloship'")
             return None
         
-        headers = {"Authorization": f"Bearer {creds['token']}"}
+        headers = {"Authorization": f"apikey {creds['token']}", "Content-Type": "application/json"}
         
         # Try to get order details with AWB
         endpoints_to_try = [
@@ -892,8 +904,13 @@ async def process_awb_discovery_batch(db, batch_size: int = 50):
     pending_orders = await get_pending_selloship_orders(db)
     logger.info(f"[AWB_SYNC] Processing {len(pending_orders)} pending orders")
     
-    # Get Selloship order list
-    selloship_orders = await fetch_selloship_order_list(db)
+    # Get Selloship order list for each user
+    user_ids = list(set(order.user_id for order in pending_orders))
+    selloship_orders = {}
+    
+    for user_id in user_ids:
+        user_orders = await fetch_selloship_order_list(db, user_id)
+        selloship_orders.update(user_orders)
     
     # Create mapping between channel_order_id and selloship_order_id
     order_mapping = {}
@@ -923,7 +940,7 @@ async def process_awb_discovery_batch(db, batch_size: int = 50):
                         mapping.last_checked = datetime.now(timezone.utc)
                     
                     # Fetch AWB
-                    awb = await fetch_awb_for_order(db, selloship_order_id)
+                    awb = await fetch_awb_for_order(db, order.user_id, selloship_order_id)
                     
                     if awb:
                         success = await update_selloship_mapping(db, order.id, selloship_order_id, awb)

@@ -20,16 +20,17 @@ class SelloshipStatusEnrichment:
     def __init__(self, db: Session):
         self.db = db
     
-    async def enrich_shipment_status(self, tracking_number: str) -> Dict:
+    async def enrich_shipment_status(self, tracking_number: str, user_id: str) -> Dict:
         """
-        Enrich status for a single tracking number
+        Enrich status for a single tracking number using user-specific credentials
         """
         if not tracking_number:
             return {"status": "FAILED", "error": "No tracking number provided"}
         
-        client = get_selloship_client()
+        from app.services.selloship_service import get_user_selloship_client
+        client = get_user_selloship_client(self.db, user_id)
         if not client:
-            return {"status": "FAILED", "error": "Selloship not configured"}
+            return {"status": "FAILED", "error": f"Selloship not configured for user {user_id}"}
         
         try:
             # Get tracking info from Selloship
@@ -74,16 +75,17 @@ class SelloshipStatusEnrichment:
             logger.error(f"Failed to enrich status for {tracking_number}: {e}")
             return {"status": "FAILED", "error": str(e)}
     
-    async def enrich_batch_status(self, tracking_numbers: List[str]) -> Dict:
+    async def enrich_batch_status(self, tracking_numbers: List[str], user_id: str) -> Dict:
         """
-        Enrich status for multiple tracking numbers (batch processing)
+        Enrich status for multiple tracking numbers using user-specific credentials
         """
         if not tracking_numbers:
             return {"status": "SUCCESS", "message": "No tracking numbers provided", "stats": {"processed": 0, "updated": 0, "errors": 0}}
         
-        client = get_selloship_client()
+        from app.services.selloship_service import get_user_selloship_client
+        client = get_user_selloship_client(self.db, user_id)
         if not client:
-            return {"status": "FAILED", "error": "Selloship not configured"}
+            return {"status": "FAILED", "error": f"Selloship not configured for user {user_id}"}
         
         stats = {"processed": 0, "updated": 0, "errors": 0}
         errors = []
@@ -154,6 +156,7 @@ class SelloshipStatusEnrichment:
     async def enrich_all_active_shipments(self, limit: int = 100) -> Dict:
         """
         Enrich status for all active shipments (excluding final statuses)
+        Groups shipments by user_id to use user-specific credentials
         """
         # Get shipments that need status enrichment
         final_statuses = ['DELIVERED', 'RTO', 'LOST', 'CANCELLED']
@@ -166,8 +169,36 @@ class SelloshipStatusEnrichment:
         if not shipments:
             return {"status": "SUCCESS", "message": "No active shipments found", "stats": {"processed": 0, "updated": 0, "errors": 0}}
         
-        tracking_numbers = [s.tracking_number for s in shipments if s.tracking_number]
-        return await self.enrich_batch_status(tracking_numbers)
+        # Group shipments by user_id for user-specific credential access
+        from collections import defaultdict
+        user_shipments = defaultdict(list)
+        for shipment in shipments:
+            user_shipments[shipment.order_id].append(shipment)
+        
+        # Process each user's shipments separately
+        total_stats = {"processed": 0, "updated": 0, "errors": 0}
+        
+        for user_id, user_specific_shipments in user_shipments.items():
+            tracking_numbers = [s.tracking_number for s in user_specific_shipments if s.tracking_number]
+            if not tracking_numbers:
+                continue
+                
+            result = await self.enrich_batch_status(tracking_numbers, user_id)
+            
+            # Aggregate stats
+            if result.get("status") == "SUCCESS":
+                stats = result.get("stats", {})
+                total_stats["processed"] += stats.get("processed", 0)
+                total_stats["updated"] += stats.get("updated", 0)
+                total_stats["errors"] += stats.get("errors", 0)
+            else:
+                total_stats["errors"] += 1
+        
+        return {
+            "status": "SUCCESS", 
+            "message": f"Processed {len(user_shipments)} users with {total_stats['processed']} shipments",
+            "stats": total_stats
+        }
     
     async def enrich_shipment_by_order_id(self, order_id: str) -> Dict:
         """
