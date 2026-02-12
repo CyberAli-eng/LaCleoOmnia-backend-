@@ -32,6 +32,7 @@ from app.http.controllers import (
     razorpay,
     razorpay_webhooks,
     dynamic_sync,
+    order_tracking,
 )
 
 logger = logging.getLogger(__name__)
@@ -61,10 +62,11 @@ def register_routes(app: FastAPI, settings) -> None:
     app.include_router(audit.router, prefix="/api/audit", tags=["audit"])
     app.include_router(users.router, prefix="/api/users", tags=["users"])
     app.include_router(integrations.router, prefix="/api/integrations", tags=["integrations"])
-    app.include_router(settlements.router, prefix="/api/settlements", tags=["settlements"])
-    app.include_router(razorpay.router, prefix="/api/razorpay", tags=["razorpay"])
-    app.include_router(razorpay_webhooks.router, prefix="/api/webhooks", tags=["razorpay_webhooks"])
     app.include_router(sku_costs.router, prefix="/api/sku-costs", tags=["sku-costs"])
     app.include_router(profit.router, prefix="/api/profit", tags=["profit"])
     app.include_router(finance.router, prefix="/api/finance", tags=["finance"])
+    app.include_router(settlements.router, prefix="/api/settlements", tags=["settlements"])
+    app.include_router(razorpay.router, prefix="/api/razorpay", tags=["razorpay"])
+    app.include_router(razorpay_webhooks.router, prefix="/api/webhooks", tags=["razorpay_webhooks"])
     app.include_router(dynamic_sync.router, prefix="/api", tags=["dynamic-sync"])
+    app.include_router(order_tracking.router, prefix="/api/tracking", tags=["order-tracking"])
