@@ -131,7 +131,7 @@ def compute_order_finance(db: Session, order_id: str) -> OrderFinance:
         logger.info(f"Found existing OrderFinance: id={finance.id}, profit_status={finance.profit_status}")
     
     # Update finance fields
-    finance.order_value = Decimal(str(order.total_amount or 0))
+    finance.order_value = Decimal(str(order.order_total or 0))
     finance.revenue_realized = revenue_realized
     
     # Compute and save expenses
