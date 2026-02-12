@@ -22,11 +22,12 @@ def add_selloship_credentials():
         system_user = db.query(User).filter(User.email == "system@localhost").first()
         if not system_user:
             print("Creating system user...")
+            from app.auth import get_password_hash
             system_user = User(
                 id="system",
                 email="system@localhost",
                 name="System User",
-                is_active=True
+                password_hash=get_password_hash("system_password_123")  # Dummy password for system user
             )
             db.add(system_user)
             db.commit()
@@ -34,15 +35,14 @@ def add_selloship_credentials():
         
         # Get Selloship credentials from user input
         print("\n=== Selloship Credentials Setup ===")
-        token = input("Enter Selloship API Token: ").strip()
-        base_url = input("Enter Selloship Base URL (default: https://api.selloship.com): ").strip()
+        print("Using your authenticated token from Selloship...")
         
-        if not base_url:
-            base_url = "https://api.selloship.com"
+        # Use the actual token you received
+        token = "token 6981e432dc924177012024263996"
+        base_url = "https://selloship.com/api/lock_actvs/channels"
         
-        if not token:
-            print("❌ Token is required!")
-            return False
+        print(f"Token: {token}")
+        print(f"Base URL: {base_url}")
         
         # Create credentials JSON
         credentials = {
