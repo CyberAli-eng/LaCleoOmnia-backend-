@@ -1059,6 +1059,7 @@ async def shopify_inventory(
 async def shopify_sync_orders(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    force_sync: bool = False,
 ):
     """
     One-time sync: fetch orders from Shopify (current user's shop), insert into orders table.
@@ -1108,25 +1109,81 @@ async def shopify_sync_orders(
             else:
                 order_status = OrderStatus.NEW
 
-            order = Order(
-                channel_id=channel.id,
-                channel_account_id=account.id,
-                channel_order_id=shopify_id,
-                customer_name=customer_name[:255],
-                customer_email=customer_email[:255] if customer_email else None,
-                payment_mode=payment_mode,
-                order_total=Decimal(str(total)),
-                status=order_status,
-            )
-            db.add(order)
-            db.flush()
-
+            # Check if order already exists
+            if not force_sync:
+                existing = db.query(Order).filter(
+                    Order.channel_id == channel.id,
+                    Order.channel_account_id == account.id,
+                    Order.channel_order_id == shopify_id,
+                ).first()
+                
+                if existing:
+                    # Always update order with latest data from Shopify
+                    existing.status = order_status
+                    existing.customer_name = customer_name[:255]
+                    existing.customer_email = customer_email[:255] if customer_email else None
+                    existing.payment_mode = payment_mode
+                    existing.order_total = Decimal(str(total))
+                    existing.updated_at = datetime.utcnow()
+                    
+                    updated += 1
+                    logger.info(f"Updated existing order {shopify_id} with status {order_status}")
+                else:
+                    # Create new order
+                    order = Order(
+                        channel_id=channel.id,
+                        channel_account_id=account.id,
+                        channel_order_id=shopify_id,
+                        customer_name=customer_name[:255],
+                        customer_email=customer_email[:255] if customer_email else None,
+                        payment_mode=payment_mode,
+                        order_total=Decimal(str(total)),
+                        status=order_status,
+                    )
+                    db.add(order)
+                    inserted += 1
+                    logger.info(f"Created new order {shopify_id} with status {order_status}")
+            else:
+                # Force sync: bypass duplicate checks and always update
+                existing = db.query(Order).filter(
+                    Order.channel_id == channel.id,
+                    Order.channel_account_id == account.id,
+                    Order.channel_order_id == shopify_id,
+                ).first()
+                
+                if existing:
+                    # Always update with latest data
+                    existing.status = order_status
+                    existing.customer_name = customer_name[:255]
+                    existing.customer_email = customer_email[:255] if customer_email else None
+                    existing.payment_mode = payment_mode
+                    existing.order_total = Decimal(str(total))
+                    existing.updated_at = datetime.utcnow()
+                    
+                    updated += 1
+                    logger.info(f"Force updated order {shopify_id} with status {order_status}")
+                else:
+                    # Create new order
+                    order = Order(
+                        channel_id=channel.id,
+                        channel_account_id=account.id,
+                        channel_order_id=shopify_id,
+                        customer_name=customer_name[:255],
+                        customer_email=customer_email[:255] if customer_email else None,
+                        payment_mode=payment_mode,
+                        order_total=Decimal(str(total)),
+                        status=order_status,
+                    )
+                    db.add(order)
+                    inserted += 1
+                    logger.info(f"Force created order {shopify_id} with status {order_status}")
             for line in o.get("line_items") or []:
                 sku = (line.get("sku") or str(line.get("variant_id") or "") or "—")[:64]
                 title = (line.get("title") or "Item")[:255]
                 qty = int(line.get("quantity", 0) or 0)
                 price = float(line.get("price", 0) or 0)
                 db.add(OrderItem(
+                    order_id=order.id if not existing else existing.id,
                     order_id=order.id,
                     sku=sku,
                     title=title,
