@@ -1148,7 +1148,6 @@ async def shopify_sync_orders(
                 price = float(line.get("price", 0) or 0)
                 db.add(OrderItem(
                     order_id=order.id if not existing else existing.id,
-                    order_id=order.id,
                     sku=sku,
                     title=title,
                     qty=qty,
