@@ -53,7 +53,7 @@ def verify_amazon_webhook(payload: bytes, signature: str, public_key: str) -> bo
         logger.warning("Amazon webhook signature verification failed: %s", e)
         return False
 
-def process_amazon_webhook(
+async def process_amazon_webhook(
     db: Session,
     marketplace_id: str,
     notification_type: str,
