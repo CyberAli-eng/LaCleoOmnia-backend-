@@ -20,7 +20,6 @@ from app.config import settings
 from app.services.shopify_oauth import ShopifyOAuthService
 from app.services.settlement_worker import start_settlement_worker
 from app.services.razorpay_service import get_razorpay_service
-from app.services.shipment_sync import sync_shipments
 from app.services.ad_spend_sync import sync_ad_spend_for_date, get_first_user_id_for_sync
 from app.services.credentials import encrypt_token, decrypt_token
 from app.models import (
@@ -193,21 +192,19 @@ SHIPMENT_POLL_FIRST_DELAY_SEC = int(os.getenv("SHIPMENT_POLL_FIRST_DELAY_SEC", "
 
 
 async def _shipments_sync_loop() -> None:
-    """Background: poll Delhivery and Selloship every 30 min; update status/cost; trigger profit recalc. Single loop."""
+    """Background: Start new worker scheduler for Shopify fulfillment and Selloship status."""
     await asyncio.sleep(SHIPMENT_POLL_FIRST_DELAY_SEC)
-    logger.info("Shipments 30-min poll started (interval=%ss)", SHIPMENT_POLL_INTERVAL_SEC)
+    logger.info("Starting new worker scheduler...")
+    
+    try:
+        from app.workers.scheduler import start_background_workers
+        start_background_workers()
+        logger.info("Worker scheduler started successfully")
+    except Exception as e:
+        logger.exception("Failed to start worker scheduler: %s", e)
+    
+    # Keep the task alive
     while True:
-        db = None
-        try:
-            db = SessionLocal()
-            result = await sync_shipments(db, user_id=None)
-            if result.get("synced", 0) > 0 or result.get("errors"):
-                logger.info("Shipments sync: synced=%s errors=%s", result.get("synced", 0), len(result.get("errors", [])))
-        except Exception as e:
-            logger.exception("Shipments 30-min sync failed: %s", e)
-        finally:
-            if db:
-                db.close()
         await asyncio.sleep(SHIPMENT_POLL_INTERVAL_SEC)
 
 

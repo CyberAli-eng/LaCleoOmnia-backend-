@@ -14,13 +14,11 @@ from app.http.controllers import (
     warehouses,
     shipments,
     logistics,
-    sync,
     config,
     webhooks,
     marketplaces,
     analytics,
     labels,
-    workers,
     audit,
     users,
     integrations,
@@ -34,6 +32,7 @@ from app.http.controllers import (
     dynamic_sync,
     order_tracking,
     fulfilled_orders,
+    shipments_v2,
 )
 
 logger = logging.getLogger(__name__)
@@ -52,14 +51,13 @@ def register_routes(app: FastAPI, settings) -> None:
     app.include_router(products.router, prefix="/api/products", tags=["products"])
     app.include_router(warehouses.router, prefix="/api/warehouses", tags=["warehouses"])
     app.include_router(shipments.router, prefix="/api/shipments", tags=["shipments"])
+    app.include_router(shipments_v2.router, prefix="/api", tags=["shipments-v2"])
     app.include_router(logistics.router, prefix="/api/logistics", tags=["logistics"])
-    app.include_router(sync.router, prefix="/api/sync", tags=["sync"])
     app.include_router(config.router, prefix="/api/config", tags=["config"])
     app.include_router(webhooks.router, prefix="/api/webhooks", tags=["webhooks"])
     app.include_router(marketplaces.router, prefix="/api/marketplaces", tags=["marketplaces"])
     app.include_router(analytics.router, prefix="/api/analytics", tags=["analytics"])
     app.include_router(labels.router, prefix="/api/labels", tags=["labels"])
-    app.include_router(workers.router, prefix="/api/workers", tags=["workers"])
     app.include_router(audit.router, prefix="/api/audit", tags=["audit"])
     app.include_router(users.router, prefix="/api/users", tags=["users"])
     app.include_router(integrations.router, prefix="/api/integrations", tags=["integrations"])
@@ -69,6 +67,3 @@ def register_routes(app: FastAPI, settings) -> None:
     app.include_router(settlements.router, prefix="/api/settlements", tags=["settlements"])
     app.include_router(razorpay.router, prefix="/api/razorpay", tags=["razorpay"])
     app.include_router(razorpay_webhooks.router, prefix="/api/webhooks", tags=["razorpay_webhooks"])
-    app.include_router(dynamic_sync.router, prefix="/api", tags=["dynamic-sync"])
-    app.include_router(order_tracking.router, prefix="/api/tracking", tags=["order-tracking"])
-    app.include_router(fulfilled_orders.router, prefix="/api/fulfilled", tags=["fulfilled-orders"])

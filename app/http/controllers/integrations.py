@@ -35,7 +35,6 @@ from app.auth import get_current_user
 from app.services.shopify_service import (
     get_orders as shopify_get_orders,
     get_inventory as shopify_get_inventory,
-    get_orders_raw,
     get_access_scopes,
 )
 from app.services.shopify_inventory_persist import persist_shopify_inventory
@@ -1062,128 +1061,39 @@ async def shopify_sync_orders(
     current_user: User = Depends(get_current_user),
 ):
     """
-    One-time sync: fetch orders from Shopify (current user's shop), insert into orders table.
-    Idempotent by channel_order_id. Safe for real data: only inserts new orders.
+    Optimized Shopify orders sync: Use new fulfillment service for real-time tracking.
+    This endpoint syncs orders and their fulfillment data from Shopify.
     """
-    integration = _get_shopify_integration(db, current_user)
-    channel = db.query(Channel).filter(Channel.name == ChannelType.SHOPIFY).first()
-    if not channel:
-        raise HTTPException(status_code=500, detail="Shopify channel not found.")
-    account = _get_user_shopify_account(db, str(current_user.id))
-    if not account:
-        raise HTTPException(status_code=401, detail="Shopify not connected. Connect via OAuth first.")
     try:
-        # Fetch both NEW and FULFILLED orders from Shopify
-        logger.info("Fetching orders from Shopify...")
-        raw_orders_new = await get_orders_raw(
-            integration.shop_domain,
-            integration.access_token,
-            limit=125,
-            fulfillment_status="unfulfilled"
-        )
-        raw_orders_fulfilled = await get_orders_raw(
-            integration.shop_domain,
-            integration.access_token,
-            limit=125,
-            fulfillment_status="fulfilled"
-        )
-        raw_orders = raw_orders_new + raw_orders_fulfilled
-        logger.info(f"Found {len(raw_orders_new)} unfulfilled and {len(raw_orders_fulfilled)} fulfilled orders from Shopify")
-    except Exception as e:
-        logger.exception("Shopify API error in sync/orders: %s", e)
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Failed to fetch orders from Shopify.",
-        )
-    inserted = 0
-    try:
-        for o in raw_orders:
-            shopify_id = str(o.get("id") or "")
-            if not shopify_id:
-                continue
-            # Customer name from billing or email
-            billing = o.get("billing_address") or {}
-            first = (billing.get("first_name") or "").strip()
-            last = (billing.get("last_name") or "").strip()
-            customer_name = f"{first} {last}".strip() if (first or last) else (o.get("email") or "Customer")[:100]
-            customer_email = (o.get("email") or "").strip() or None
-            total = float(o.get("total_price", 0) or 0)
-            financial = (o.get("financial_status") or "").lower()
-            payment_mode = PaymentMode.PREPAID if financial == "paid" else PaymentMode.COD
-            
-            # Simple fulfillment status mapping
-            fulfillment_status = (o.get("fulfillment_status") or "").lower()
-            if fulfillment_status == "fulfilled":
-                order_status = OrderStatus.SHIPPED
-            else:
-                order_status = OrderStatus.NEW
-
-            # Check if order already exists
-            if db.query(Order).filter(Order.channel_id == channel.id, Order.channel_account_id == account.id, Order.channel_order_id == shopify_id).first():
-                continue
-
-            order = Order(
-                channel_id=channel.id,
-                channel_account_id=account.id,
-                channel_order_id=shopify_id,
-                customer_name=customer_name[:255],
-                customer_email=customer_email[:255] if customer_email else None,
-                payment_mode=payment_mode,
-                order_total=Decimal(str(total)),
-                status=order_status,
+        from app.services.shopify_fulfillment_service import sync_all_pending_fulfillments
+        
+        # Use the new fulfillment service
+        result = sync_all_pending_fulfillments(str(current_user.id), db)
+        
+        if result["success"]:
+            logger.info(f"Shopify orders sync completed: {result['message']}")
+            return {
+                "success": True,
+                "message": result["message"],
+                "synced": result.get("synced", 0),
+                "updated": result.get("updated", 0),
+                "total_processed": result.get("total_orders", 0)
+            }
+        else:
+            logger.error(f"Shopify orders sync failed: {result['message']}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=result["message"]
             )
             
-            # Create OrderShipment for fulfilled orders with tracking data
-            if fulfillment_status == "fulfilled":
-                fulfillments = o.get("fulfillments", [])
-                for fulfillment in fulfillments:
-                    tracking_number = fulfillment.get("tracking_number")
-                    if tracking_number:
-                        # Flush to get order.id
-                        db.flush()
-                        order_shipment = OrderShipment(
-                            order_id=order.id,
-                            tracking_number=tracking_number,
-                            shopify_fulfillment_id=str(fulfillment.get("id", "")),
-                            tracking_company=fulfillment.get("tracking_company", ""),
-                            status="SHIPPED"
-                        )
-                        db.add(order_shipment)
-                        logger.info(f"Created shipment for order {shopify_id} with tracking {tracking_number}")
-                        break  # Only create one shipment per order for now
-            for line in o.get("line_items") or []:
-                sku = (line.get("sku") or str(line.get("variant_id") or "") or "—")[:64]
-                title = (line.get("title") or "Item")[:255]
-                qty = int(line.get("quantity", 0) or 0)
-                price = float(line.get("price", 0) or 0)
-                db.add(OrderItem(
-                    order_id=order.id,
-                    sku=sku,
-                    title=title,
-                    qty=qty,
-                    price=Decimal(str(price)),
-                    fulfillment_status=FulfillmentStatus.PENDING,
-                ))
-            inserted += 1
-
-        if getattr(integration, "_integration_row", None):
-            integration._integration_row.last_synced_at = datetime.now(timezone.utc)
-        db.commit()
-    except IntegrityError as e:
-        db.rollback()
-        logger.warning("Shopify sync/orders integrity error (duplicate?): %s", e)
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Some orders already exist from a previous sync. Synced count may be partial. Run sync again to continue.",
-        )
+    except HTTPException:
+        raise
     except Exception as e:
-        db.rollback()
-        logger.exception("Shopify sync/orders failed: %s", e)
+        logger.error(f"Shopify orders sync error: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Order sync failed. Check server logs or try again.",
+            detail=f"Orders sync failed: {str(e)}"
         )
-    return {"synced": inserted, "total_fetched": len(raw_orders), "message": f"Imported {inserted} new orders."}
 
 
 def _get_or_create_shopify_channel_account(db: Session, integration: ShopifyIntegration, current_user: User):
@@ -1217,175 +1127,38 @@ async def shopify_sync(
     current_user: User = Depends(get_current_user),
 ):
     """
-    Unified initial sync: fetch orders + inventory from current user's Shopify shop, save into DB.
-    Idempotent for orders (skip existing); upsert inventory.
+    Optimized Shopify sync: Use new fulfillment service for real-time tracking.
     """
-    integration = _get_shopify_integration(db, current_user)
-    channel = db.query(Channel).filter(Channel.name == ChannelType.SHOPIFY).first()
-    if not channel:
-        raise HTTPException(status_code=500, detail="Shopify channel not found.")
-    account = _get_user_shopify_account(db, str(current_user.id))
-    if not account:
-        raise HTTPException(status_code=401, detail="Shopify not connected. Connect via OAuth first.")
-
-    # 1) Sync orders
     try:
-        # Fetch both NEW and FULFILLED orders from Shopify
-        logger.info("Fetching orders from Shopify...")
-        raw_orders_new = await get_orders_raw(
-            integration.shop_domain,
-            integration.access_token,
-            limit=125,
-            fulfillment_status="unfulfilled"
-        )
-        raw_orders_fulfilled = await get_orders_raw(
-            integration.shop_domain,
-            integration.access_token,
-            limit=125,
-            fulfillment_status="fulfilled"
-        )
-        raw_orders = raw_orders_new + raw_orders_fulfilled
-        logger.info(f"Found {len(raw_orders_new)} unfulfilled and {len(raw_orders_fulfilled)} fulfilled orders from Shopify")
-    except Exception as e:
-        logger.exception("Shopify API error in sync (orders): %s", e)
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Failed to fetch orders from Shopify.",
-        )
-    def _format_address(addr: Optional[dict]) -> Optional[str]:
-        if not addr or not isinstance(addr, dict):
-            return None
-        parts = []
-        if (addr.get("address1") or "").strip():
-            parts.append((addr.get("address1") or "").strip())
-        if (addr.get("address2") or "").strip():
-            parts.append((addr.get("address2") or "").strip())
-        city = (addr.get("city") or "").strip()
-        prov = (addr.get("province_code") or addr.get("province") or "").strip()
-        zip_ = (addr.get("zip") or "").strip()
-        country = (addr.get("country") or "").strip()
-        if city or prov or zip_ or country:
-            parts.append(", ".join(p for p in [city, prov, zip_, country] if p))
-        line = ", ".join(parts)
-        return line[:1024] if line else None
-
-    orders_inserted = 0
-    new_order_ids: list[str] = []
-    try:
-        for o in raw_orders:
-            shopify_id = str(o.get("id") or "")
-            if not shopify_id:
-                continue
-            if db.query(Order).filter(Order.channel_id == channel.id, Order.channel_account_id == account.id, Order.channel_order_id == shopify_id).first():
-                continue
-            
-            billing = o.get("billing_address") or {}
-            first = (billing.get("first_name") or "").strip()
-            last = (billing.get("last_name") or "").strip()
-            customer_name = f"{first} {last}".strip() if (first or last) else (o.get("email") or "Customer")[:100]
-            customer_email = (o.get("email") or "").strip() or None
-            total = float(o.get("total_price", 0) or 0)
-            financial = (o.get("financial_status") or "").lower()
-            payment_mode = PaymentMode.PREPAID if financial == "paid" else PaymentMode.COD
-            
-            # Simple fulfillment status mapping
-            fulfillment_status = (o.get("fulfillment_status") or "").lower()
-            if fulfillment_status == "fulfilled":
-                order_status = OrderStatus.SHIPPED
-            else:
-                order_status = OrderStatus.NEW
-
-            order = Order(
-                channel_id=channel.id,
-                channel_account_id=account.id,
-                channel_order_id=shopify_id,
-                customer_name=customer_name[:255],
-                customer_email=customer_email[:255] if customer_email else None,
-                payment_mode=payment_mode,
-                order_total=Decimal(str(total)),
-                status=order_status,
+        from app.services.shopify_fulfillment_service import sync_all_pending_fulfillments
+        
+        # Use the new fulfillment service
+        result = sync_all_pending_fulfillments(str(current_user.id), db)
+        
+        if result["success"]:
+            logger.info(f"Shopify sync completed: {result['message']}")
+            return {
+                "success": True,
+                "message": result["message"],
+                "orders_synced": result.get("synced", 0),
+                "orders_updated": result.get("updated", 0),
+                "total_processed": result.get("total_orders", 0)
+            }
+        else:
+            logger.error(f"Shopify sync failed: {result['message']}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=result["message"]
             )
             
-            # Create OrderShipment for fulfilled orders with tracking data
-            if fulfillment_status == "fulfilled":
-                fulfillments = o.get("fulfillments", [])
-                for fulfillment in fulfillments:
-                    tracking_number = fulfillment.get("tracking_number")
-                    if tracking_number:
-                        # Flush to get order.id
-                        db.flush()
-                        order_shipment = OrderShipment(
-                            order_id=order.id,
-                            tracking_number=tracking_number,
-                            shopify_fulfillment_id=str(fulfillment.get("id", "")),
-                            tracking_company=fulfillment.get("tracking_company", ""),
-                            status="SHIPPED"
-                        )
-                        db.add(order_shipment)
-                        logger.info(f"Created shipment for order {shopify_id} with tracking {tracking_number}")
-                        break  # Only create one shipment per order for now
-            
-            for line in o.get("line_items") or []:
-                sku = (line.get("sku") or str(line.get("variant_id") or "") or "—")[:64]
-                title = (line.get("title") or "Item")[:255]
-                qty = int(line.get("quantity", 0) or 0)
-                price = float(line.get("price", 0) or 0)
-                db.add(OrderItem(
-                    order_id=order.id,
-                    sku=sku,
-                    title=title,
-                    qty=qty,
-                    price=Decimal(str(price)),
-                    fulfillment_status=FulfillmentStatus.PENDING,
-                ))
-            new_order_ids.append(order.id)
-            orders_inserted += 1
-
-        # 2) Recompute profit for newly synced orders (uses sku_costs when present)
-        for oid in new_order_ids:
-            try:
-                compute_profit_for_order(db, oid)
-            except Exception as e:
-                logger.warning("Profit recompute for order %s failed: %s", oid, e)
-
-        if getattr(integration, "_integration_row", None):
-            integration._integration_row.last_synced_at = datetime.now(timezone.utc)
-        db.commit()
-    except IntegrityError as e:
-        db.rollback()
-        logger.warning("Shopify sync integrity error (duplicate?): %s", e)
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Some orders already exist from a previous sync. Synced count may be partial. Run sync again to continue.",
-        )
+    except HTTPException:
+        raise
     except Exception as e:
-        db.rollback()
-        logger.exception("Shopify sync failed: %s", e)
+        logger.error(f"Shopify sync error: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Sync failed. Check server logs or try again.",
+            detail=f"Sync failed: {str(e)}"
         )
-
-    # Inventory sync (outside order transaction; never fail the request)
-    inventory_synced = 0
-    try:
-        inv_list = await shopify_get_inventory(
-            integration.shop_domain,
-            integration.access_token,
-        )
-        inventory_synced = persist_shopify_inventory(db, integration.shop_domain, inv_list or [])
-        db.commit()
-    except Exception as e:
-        logger.warning("Shopify inventory sync failed: %s", e)
-        # Don't fail the whole sync if inventory fails
-    
-    message = f"Synced {orders_inserted} new orders and {inventory_synced} inventory records."
-    return {
-        "orders_synced": orders_inserted,
-        "inventory_synced": inventory_synced,
-        "total_orders_fetched": len(raw_orders),
-        "message": message,
-    }
 
 
 @router.get("/providers/selloship/test")
@@ -1398,10 +1171,17 @@ async def test_selloship_connection(
     Returns token validity, sample status, and any errors.
     """
     from app.services.selloship_service import get_selloship_client, fetch_selloship_token
-    from app.services.shipment_sync import _get_selloship_credentials
+    from app.models import ProviderCredential
     
     # Get user's Selloship credentials
-    api_key, username, password = _get_selloship_credentials(db, str(current_user.id))
+    credentials = db.query(ProviderCredential).filter(
+        ProviderCredential.user_id == str(current_user.id),
+        ProviderCredential.provider == "selloship"
+    ).first()
+    
+    api_key = credentials.api_key if credentials else None
+    username = credentials.username if credentials else None
+    password = credentials.password if credentials and credentials.password else None
     
     if not api_key and not (username and password):
         return {

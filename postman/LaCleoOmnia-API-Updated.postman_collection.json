@@ -1,0 +1,552 @@
+{
+  "info": {
+    "name": "LaCleoOmnia API - Updated",
+    "description": "Order & Inventory Management System – Auth, Orders, Inventory, Integrations (Shopify, Delhivery, Selloship), Shipments, Analytics, Profit, Finance, SKU Costs, Webhooks, Workers. Updated with latest Shopify tracking and fulfillment endpoints.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      { "key": "token", "value": "{{token}}", "type": "string" }
+    ]
+  },
+  "variable": [
+    { "key": "base_url", "value": "https://lacleoomnia-api.onrender.com" },
+    { "key": "token", "value": "" },
+    { "key": "order_id", "value": "" },
+    { "key": "channel_order_id", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "GET Health check",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/health",
+            "description": "No auth. Returns status, service, environment."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "POST Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var json = pm.response.json();",
+                  "if (json.token) { pm.collectionVariables.set('token', json.token); }"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"shaizqurashi12345@gmail.com\",\n  \"password\": \"aligarh123boss\"\n}"
+            },
+            "url": "{{base_url}}/api/auth/login",
+            "description": "Returns token and user. Token is auto-saved to collection variable for other requests."
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": { "method": "POST", "header": [], "url": { "raw": "{{base_url}}/api/auth/login" }, "body": { "mode": "raw", "raw": "{\"email\":\"shaizqurashi12345@gmail.com\",\"password\":\"aligarh123boss\"}" } },
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"token\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\",\n  \"user\": {\n    \"id\": \"477ec7b8-22b0-499c-9198-463f29a06ba6\",\n    \"name\": \"Ali khusroo bin Sabir\",\n    \"email\": \"shaizqurashi12345@gmail.com\",\n    \"role\": \"STAFF\"\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "POST Register",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Test User\",\n  \"email\": \"test@example.com\",\n  \"password\": \"Test@123\"\n}"
+            },
+            "url": "{{base_url}}/api/auth/register",
+            "description": "Creates user and returns token, user."
+          }
+        },
+        {
+          "name": "GET Get current user (me)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/auth/me",
+            "description": "Requires Authorization: Bearer {{token}}."
+          }
+        },
+        {
+          "name": "POST Logout",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{base_url}}/api/auth/logout"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Orders",
+      "item": [
+        {
+          "name": "GET List orders",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/orders?status=all",
+              "host": ["{{base_url}}"],
+              "path": ["api", "orders"],
+              "query": [
+                { "key": "status", "value": "all", "description": "all | NEW | CONFIRMED | PACKED | SHIPPED | etc." },
+                { "key": "channel", "value": "", "disabled": true },
+                { "key": "q", "value": "", "description": "Search order id, customer, email", "disabled": true }
+              ]
+            },
+            "response": [
+              {
+                "name": "Success Response",
+                "status": "OK",
+                "code": 200,
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": "{\n  \"orders\": [\n    {\n      \"id\": \"order-001\",\n      \"channelOrderId\": \"SHOP-1001\",\n      \"customerName\": \"Rahul Sharma\",\n      \"orderTotal\": 2499.00,\n      \"status\": \"CONFIRMED\",\n      \"createdAt\": \"2026-01-22T10:00:00Z\",\n      \"items\": [],\n      \"shipments\": []\n    }\n  ]\n}"
+              }
+            ]
+          }
+        },
+        {
+          "name": "GET Get order by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/orders/{{order_id}}",
+            "description": "Get a single order by UUID (Order.id). Set {{order_id}} from list-orders."
+          }
+        },
+        {
+          "name": "GET Get order by Channel Order ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/orders/by-channel/{{channel_order_id}}",
+            "description": "Get a single order by channelOrderId (Order.channel_order_id), scoped to the current user."
+          }
+        },
+        {
+          "name": "POST Confirm order",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{base_url}}/api/orders/{{order_id}}/confirm"
+          }
+        },
+        {
+          "name": "POST Pack order",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{base_url}}/api/orders/{{order_id}}/pack"
+          }
+        },
+        {
+          "name": "POST Ship order",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"courier_name\": \"delhivery\",\n  \"awb_number\": \"AWB123456789\",\n  \"tracking_url\": \"\",\n  \"label_url\": \"\",\n  \"forward_cost\": 80,\n  \"reverse_cost\": 0\n}"
+            },
+            "url": "{{base_url}}/api/orders/{{order_id}}/ship"
+          }
+        },
+        {
+          "name": "POST Cancel order",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{base_url}}/api/orders/{{order_id}}/cancel"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Inventory",
+      "item": [
+        {
+          "name": "GET List inventory",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/inventory",
+              "host": ["{{base_url}}"],
+              "path": ["api", "inventory"],
+              "query": [
+                { "key": "warehouse_id", "value": "", "disabled": true },
+                { "key": "sku", "value": "", "disabled": true }
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST Adjust inventory",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sku\": \"SKU-001\",\n  \"warehouse_id\": \"wh-1\",\n  \"qty_delta\": 10,\n  \"reason\": \"Stock correction\"\n}"
+            },
+            "url": "{{base_url}}/api/inventory/adjust"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Integrations",
+      "item": [
+        {
+          "name": "GET Get catalog",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/integrations/catalog"
+          }
+        },
+        {
+          "name": "GET Get provider status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/integrations/providers/delhivery/status"
+          }
+        },
+        {
+          "name": "POST Connect provider",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"apiKey\": \"your-delhivery-api-key\"\n}"
+            },
+            "url": "{{base_url}}/api/integrations/providers/delhivery/connect"
+          }
+        },
+        {
+          "name": "GET Get Shopify app status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/integrations/providers/shopify_app/status"
+          }
+        },
+        {
+          "name": "POST Connect Shopify app",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"apiKey\": \"your-shopify-api-key\",\n  \"apiSecret\": \"your-shopify-api-secret\"\n}"
+            },
+            "url": "{{base_url}}/api/integrations/providers/shopify_app/connect"
+          }
+        },
+        {
+          "name": "GET Get Shopify status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/integrations/shopify/status"
+          }
+        },
+        {
+          "name": "GET Get Shopify orders",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/integrations/shopify/orders"
+          }
+        },
+        {
+          "name": "GET Get Shopify inventory",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/integrations/shopify/inventory",
+              "host": ["{{base_url}}"],
+              "path": ["api", "integrations", "shopify", "inventory"],
+              "query": [
+                { "key": "refresh", "value": "true", "description": "Force fetch from Shopify", "disabled": true }
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST Sync Shopify (Frontend)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{base_url}}/api/integrations/shopify/sync",
+            "description": "Used by frontend inventory page. Returns orders_synced and inventory_synced counts."
+          }
+        },
+        {
+          "name": "POST Sync Shopify Orders (Dedicated)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{base_url}}/api/integrations/shopify/sync/orders",
+            "description": "Dedicated endpoint for syncing orders with tracking data. Fetches both unfulfilled and fulfilled orders."
+          }
+        },
+        {
+          "name": "POST Register Shopify webhooks",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{base_url}}/api/integrations/shopify/register-webhooks"
+          }
+        },
+        {
+          "name": "POST Sync ad spend",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{base_url}}/api/integrations/ad-spend/sync"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Shipments",
+      "item": [
+        {
+          "name": "GET List shipments",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/shipments"
+          }
+        },
+        {
+          "name": "GET Get shipment by order ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/shipments/order/{{order_id}}"
+          }
+        },
+        {
+          "name": "POST Create shipment",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"order_id\": \"order-uuid-here\",\n  \"awb_number\": \"AWB123\",\n  \"courier_name\": \"delhivery\",\n  \"tracking_url\": \"\",\n  \"label_url\": \"\",\n  \"forward_cost\": 80,\n  \"reverse_cost\": 0\n}"
+            },
+            "url": "{{base_url}}/api/shipments"
+          }
+        },
+        {
+          "name": "POST Sync shipments",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{base_url}}/api/shipments/sync",
+            "description": "Sync Delhivery + Selloship status/costs."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Analytics",
+      "item": [
+        {
+          "name": "GET Get summary",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/analytics/summary"
+          }
+        },
+        {
+          "name": "GET Get profit summary",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/analytics/profit-summary"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Finance",
+      "item": [
+        {
+          "name": "GET Finance Overview",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/finance/overview",
+            "description": "Get finance overview statistics including total orders, revenue, expenses, profit"
+          }
+        },
+        {
+          "name": "GET Order Finance Details",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/finance/orders/{{order_id}}",
+            "description": "Get detailed finance information for a specific order including expenses and settlements"
+          }
+        },
+        {
+          "name": "GET P&L Report",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/finance/pnl?start_date=2024-01-01&end_date=2024-12-31",
+              "host": ["{{base_url}}"],
+              "path": ["api", "finance", "pnl"],
+              "query": [
+                { "key": "start_date", "value": "2024-01-01", "description": "Start date for P&L report" },
+                { "key": "end_date", "value": "2024-12-31", "description": "End date for P&L report" }
+              ]
+            },
+            "description": "Get Profit & Loss report for a date range with expense breakdown"
+          }
+        },
+        {
+          "name": "GET Settlement Pipeline",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/finance/settlements?status=PENDING",
+              "host": ["{{base_url}}"],
+              "path": ["api", "finance", "settlements"],
+              "query": [
+                { "key": "status", "value": "PENDING", "description": "Filter by settlement status (PENDING, SETTLED, OVERDUE)" },
+                { "key": "partner", "value": "", "description": "Filter by partner (Payment Gateway, Marketplace, Courier)", "disabled": true }
+              ]
+            },
+            "description": "Get settlement pipeline with pending, settled, and overdue settlements"
+          }
+        },
+        {
+          "name": "POST Create Settlement",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"order_id\": \"order-uuid-here\",\n  \"partner\": \"Payment Gateway\",\n  \"amount\": 1000.00,\n  \"expected_date\": \"2024-02-15\",\n  \"reference_id\": \"SETTLE-123\",\n  \"notes\": \"Expected settlement\"\n}"
+            },
+            "url": "{{base_url}}/api/finance/settlements"
+          }
+        },
+        {
+          "name": "PATCH Update Settlement",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"actual_date\": \"2024-02-14\",\n  \"reference_id\": \"SETTLE-123-CONFIRMED\",\n  \"notes\": \"Settled successfully\"\n}"
+            },
+            "url": "{{base_url}}/api/finance/settlements/{{settlement_id}}"
+          }
+        },
+        {
+          "name": "GET Cashflow Forecast",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/finance/settlements/forecast?days=30",
+              "host": ["{{base_url}}"],
+              "path": ["api", "finance", "settlements", "forecast"],
+              "query": [
+                { "key": "days", "value": "30", "description": "Number of days for forecast (1-365)" }
+              ]
+            },
+            "description": "Get cashflow forecast for next N days"
+          }
+        },
+        {
+          "name": "GET Risk Summary",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/finance/risk"
+          }
+        },
+        {
+          "name": "GET Customer Risk Profile",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/finance/risk/{{customer_id}}"
+          }
+        },
+        {
+          "name": "POST Add Manual Expense",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"order_id\": \"order-uuid-here\",\n  \"expense_type\": \"OVERHEAD\",\n  \"amount\": 50.00,\n  \"description\": \"Manual overhead adjustment\",\n  \"effective_date\": \"2024-02-10\"\n}"
+            },
+            "url": "{{base_url}}/api/finance/expenses"
+          }
+        },
+        {
+          "name": "PATCH Update Manual Expense (frontend ExpenseEditor)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"category\": \"Packaging\",\n  \"description\": \"Updated packaging fee\",\n  \"amount\": 25.00\n}"
+            },
+            "url": "{{base_url}}/api/finance/expense/{{expense_id}}"
+          }
+        },
+        {
+          "name": "DELETE Delete Manual Expense (frontend ExpenseEditor)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{base_url}}/api/finance/expense/{{expense_id}}"
+          }
+        }
+      ]
+    }
+  ]
+}

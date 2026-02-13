@@ -88,9 +88,11 @@ async def list_orders(
                 {
                     "id": shipment.id,
                     "trackingNumber": shipment.tracking_number,
-                    "trackingCompany": shipment.tracking_company,
-                    "status": shipment.status,
-                    "deliveryStatus": shipment.status,
+                    "trackingCompany": shipment.courier,
+                    "fulfillmentStatus": shipment.fulfillment_status,
+                    "deliveryStatus": shipment.delivery_status,
+                    "selloshipStatus": shipment.selloship_status,
+                    "lastUpdate": shipment.last_synced_at.isoformat() if shipment.last_synced_at else None,
                     "createdAt": shipment.created_at.isoformat() if shipment.created_at else None
                 }
                 for shipment in shipments
