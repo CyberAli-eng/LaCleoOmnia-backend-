@@ -1072,11 +1072,22 @@ async def shopify_sync_orders(
     if not account:
         raise HTTPException(status_code=401, detail="Shopify not connected. Connect via OAuth first.")
     try:
-        raw_orders = await get_orders_raw(
+        # Fetch both NEW and FULFILLED orders from Shopify
+        logger.info("Fetching orders from Shopify...")
+        raw_orders_new = await get_orders_raw(
             integration.shop_domain,
             integration.access_token,
-            limit=250,
+            limit=125,
+            fulfillment_status="unfulfilled"
         )
+        raw_orders_fulfilled = await get_orders_raw(
+            integration.shop_domain,
+            integration.access_token,
+            limit=125,
+            fulfillment_status="fulfilled"
+        )
+        raw_orders = raw_orders_new + raw_orders_fulfilled
+        logger.info(f"Found {len(raw_orders_new)} unfulfilled and {len(raw_orders_fulfilled)} fulfilled orders from Shopify")
     except Exception as e:
         logger.exception("Shopify API error in sync/orders: %s", e)
         raise HTTPException(
