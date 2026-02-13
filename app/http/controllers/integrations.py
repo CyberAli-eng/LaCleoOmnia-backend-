@@ -1367,20 +1367,18 @@ async def shopify_sync(
         )
 
     # Inventory sync (outside order transaction; never fail the request)
-    inv_list: list = []
+    inventory_synced = 0
     try:
         inv_list = await shopify_get_inventory(
             integration.shop_domain,
             integration.access_token,
         )
-    except Exception as e:
-        logger.warning("Shopify inventory fetch in sync failed: %s", e)
-    inventory_synced = persist_shopify_inventory(db, integration.shop_domain, inv_list or [])
-    try:
+        inventory_synced = persist_shopify_inventory(db, integration.shop_domain, inv_list or [])
         db.commit()
     except Exception as e:
-        logger.warning("Inventory persist commit failed: %s", e)
-        db.rollback()
+        logger.warning("Shopify inventory sync failed: %s", e)
+        # Don't fail the whole sync if inventory fails
+    
     message = f"Synced {orders_inserted} new orders and {inventory_synced} inventory records."
     return {
         "orders_synced": orders_inserted,
