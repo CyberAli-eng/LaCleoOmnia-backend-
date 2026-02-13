@@ -1139,6 +1139,8 @@ async def shopify_sync_orders(
                 for fulfillment in fulfillments:
                     tracking_number = fulfillment.get("tracking_number")
                     if tracking_number:
+                        # Flush to get order.id
+                        db.flush()
                         order_shipment = OrderShipment(
                             order_id=order.id,
                             tracking_number=tracking_number,
