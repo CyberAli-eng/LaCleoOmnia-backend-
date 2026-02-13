@@ -1230,11 +1230,22 @@ async def shopify_sync(
 
     # 1) Sync orders
     try:
-        raw_orders = await get_orders_raw(
+        # Fetch both NEW and FULFILLED orders from Shopify
+        logger.info("Fetching orders from Shopify...")
+        raw_orders_new = await get_orders_raw(
             integration.shop_domain,
             integration.access_token,
-            limit=250,
+            limit=125,
+            fulfillment_status="unfulfilled"
         )
+        raw_orders_fulfilled = await get_orders_raw(
+            integration.shop_domain,
+            integration.access_token,
+            limit=125,
+            fulfillment_status="fulfilled"
+        )
+        raw_orders = raw_orders_new + raw_orders_fulfilled
+        logger.info(f"Found {len(raw_orders_new)} unfulfilled and {len(raw_orders_fulfilled)} fulfilled orders from Shopify")
     except Exception as e:
         logger.exception("Shopify API error in sync (orders): %s", e)
         raise HTTPException(
@@ -1267,17 +1278,60 @@ async def shopify_sync(
                 continue
             if db.query(Order).filter(Order.channel_id == channel.id, Order.channel_account_id == account.id, Order.channel_order_id == shopify_id).first():
                 continue
+            
             billing = o.get("billing_address") or {}
             first = (billing.get("first_name") or "").strip()
             last = (billing.get("last_name") or "").strip()
             customer_name = f"{first} {last}".strip() if (first or last) else (o.get("email") or "Customer")[:100]
+            customer_email = (o.get("email") or "").strip() or None
+            total = float(o.get("total_price", 0) or 0)
+            financial = (o.get("financial_status") or "").lower()
+            payment_mode = PaymentMode.PREPAID if financial == "paid" else PaymentMode.COD
+            
+            # Simple fulfillment status mapping
+            fulfillment_status = (o.get("fulfillment_status") or "").lower()
+            if fulfillment_status == "fulfilled":
+                order_status = OrderStatus.SHIPPED
+            else:
+                order_status = OrderStatus.NEW
+
+            order = Order(
+                channel_id=channel.id,
+                channel_account_id=account.id,
+                channel_order_id=shopify_id,
+                customer_name=customer_name[:255],
+                customer_email=customer_email[:255] if customer_email else None,
+                payment_mode=payment_mode,
+                order_total=Decimal(str(total)),
+                status=order_status,
+            )
+            
+            # Create OrderShipment for fulfilled orders with tracking data
+            if fulfillment_status == "fulfilled":
+                fulfillments = o.get("fulfillments", [])
+                for fulfillment in fulfillments:
+                    tracking_number = fulfillment.get("tracking_number")
+                    if tracking_number:
+                        # Flush to get order.id
+                        db.flush()
+                        order_shipment = OrderShipment(
+                            order_id=order.id,
+                            tracking_number=tracking_number,
+                            shopify_fulfillment_id=str(fulfillment.get("id", "")),
+                            tracking_company=fulfillment.get("tracking_company", ""),
+                            status="SHIPPED"
+                        )
+                        db.add(order_shipment)
+                        logger.info(f"Created shipment for order {shopify_id} with tracking {tracking_number}")
+                        break  # Only create one shipment per order for now
+            
             for line in o.get("line_items") or []:
                 sku = (line.get("sku") or str(line.get("variant_id") or "") or "—")[:64]
                 title = (line.get("title") or "Item")[:255]
                 qty = int(line.get("quantity", 0) or 0)
                 price = float(line.get("price", 0) or 0)
                 db.add(OrderItem(
-                    order_id=order.id if not existing else existing.id,
+                    order_id=order.id,
                     sku=sku,
                     title=title,
                     qty=qty,
