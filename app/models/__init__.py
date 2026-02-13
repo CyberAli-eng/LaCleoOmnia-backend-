@@ -221,7 +221,6 @@ class Order(Base):
     channel_account = relationship("ChannelAccount", back_populates="orders")
     items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
     shipment = relationship("Shipment", back_populates="order", uselist=False)
-    order_shipments = relationship("OrderShipment", back_populates="order", cascade="all, delete-orphan")
 
     __table_args__ = (
         UniqueConstraint(
