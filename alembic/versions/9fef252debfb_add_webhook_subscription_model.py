@@ -48,25 +48,27 @@ def upgrade() -> None:
                 op.create_index(shopify_index_name, 'shopify_integrations', ['shop_domain'], unique=True)
             except Exception:
                 pass
-    op.create_table('webhook_subscriptions',
-    sa.Column('id', sa.String(), nullable=False),
-    sa.Column('user_id', sa.String(), nullable=False),
-    sa.Column('source', sa.String(), nullable=False),
-    sa.Column('shop_domain', sa.String(), nullable=True),
-    sa.Column('topic', sa.String(), nullable=False),
-    sa.Column('webhook_id', sa.String(), nullable=True),
-    sa.Column('endpoint_url', sa.String(), nullable=False),
-    sa.Column('secret', sa.String(), nullable=True),
-    sa.Column('is_active', sa.Boolean(), nullable=False),
-    sa.Column('last_delivery_at', sa.DateTime(), nullable=True),
-    sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
-    sa.Column('updated_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
-    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
-    sa.PrimaryKeyConstraint('id'),
-    sa.UniqueConstraint('user_id', 'source', 'shop_domain', 'topic', name='uq_webhook_subscription_user_source_shop_topic')
-    )
-    op.create_index(op.f('ix_webhook_subscriptions_shop_domain'), 'webhook_subscriptions', ['shop_domain'], unique=False)
-    op.create_index(op.f('ix_webhook_subscriptions_source'), 'webhook_subscriptions', ['source'], unique=False)
+    # Create webhook_subscriptions table if it doesn't exist
+    if "webhook_subscriptions" not in tables:
+        op.create_table('webhook_subscriptions',
+        sa.Column('id', sa.String(), nullable=False),
+        sa.Column('user_id', sa.String(), nullable=False),
+        sa.Column('source', sa.String(), nullable=False),
+        sa.Column('shop_domain', sa.String(), nullable=True),
+        sa.Column('topic', sa.String(), nullable=False),
+        sa.Column('webhook_id', sa.String(), nullable=True),
+        sa.Column('endpoint_url', sa.String(), nullable=False),
+        sa.Column('secret', sa.String(), nullable=True),
+        sa.Column('is_active', sa.Boolean(), nullable=False),
+        sa.Column('last_delivery_at', sa.DateTime(), nullable=True),
+        sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
+        sa.Column('updated_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
+        sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
+        sa.PrimaryKeyConstraint('id'),
+        sa.UniqueConstraint('user_id', 'source', 'shop_domain', 'topic', name='uq_webhook_subscription_user_source_shop_topic')
+        )
+        op.create_index(op.f('ix_webhook_subscriptions_shop_domain'), 'webhook_subscriptions', ['shop_domain'], unique=False)
+        op.create_index(op.f('ix_webhook_subscriptions_source'), 'webhook_subscriptions', ['source'], unique=False)
     op.create_index(op.f('ix_webhook_subscriptions_topic'), 'webhook_subscriptions', ['topic'], unique=False)
     op.create_index(op.f('ix_webhook_subscriptions_user_id'), 'webhook_subscriptions', ['user_id'], unique=False)
     op.drop_index('ix_order_profit_order_id', table_name='order_profit')
