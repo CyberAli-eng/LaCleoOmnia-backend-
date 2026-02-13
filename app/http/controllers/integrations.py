@@ -1141,6 +1141,7 @@ async def shopify_sync_orders(
             else:
                 # Create new order
                 db.add(order)
+                db.flush()  # Get the ID without committing
                 inserted += 1
                 logger.info(f"Created new order {shopify_id} with status {order_status}")
                 order_id = order.id
