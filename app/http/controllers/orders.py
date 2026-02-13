@@ -7,7 +7,7 @@ from sqlalchemy import or_
 from typing import Optional
 from datetime import datetime
 from app.database import get_db
-from app.models import Order, OrderItem, OrderStatus, User, FulfillmentStatus, Warehouse, Inventory, InventoryMovement, InventoryMovementType, Channel, ChannelAccount, AuditLog, AuditLogAction, OrderProfit
+from app.models import Order, OrderItem, OrderStatus, User, FulfillmentStatus, Warehouse, Inventory, InventoryMovement, InventoryMovementType, Channel, ChannelAccount, AuditLog, AuditLogAction, OrderProfit, OrderShipment
 from app.auth import get_current_user
 from app.services.warehouse_helper import get_default_warehouse
 from app.http.requests import OrderResponse, ShipOrderRequest
@@ -60,6 +60,8 @@ async def list_orders(
     result = []
     for order in orders:
         items = db.query(OrderItem).filter(OrderItem.order_id == order.id).all()
+        shipments = db.query(OrderShipment).filter(OrderShipment.order_id == order.id).all()
+        
         result.append({
             "id": order.id,
             "channelOrderId": order.channel_order_id,
@@ -81,6 +83,17 @@ async def list_orders(
                     "fulfillmentStatus": item.fulfillment_status.value
                 }
                 for item in items
+            ],
+            "shipments": [
+                {
+                    "id": shipment.id,
+                    "trackingNumber": shipment.tracking_number,
+                    "trackingCompany": shipment.tracking_company,
+                    "status": shipment.status,
+                    "deliveryStatus": shipment.status,
+                    "createdAt": shipment.created_at.isoformat() if shipment.created_at else None
+                }
+                for shipment in shipments
             ]
         })
     

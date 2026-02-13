@@ -25,6 +25,7 @@ from app.models import (
     ChannelAccountStatus,
     Order,
     OrderItem,
+    OrderShipment,
     OrderStatus,
     PaymentMode,
     FulfillmentStatus,
@@ -1131,6 +1132,23 @@ async def shopify_sync_orders(
                 order_total=Decimal(str(total)),
                 status=order_status,
             )
+            
+            # Create OrderShipment for fulfilled orders with tracking data
+            if fulfillment_status == "fulfilled":
+                fulfillments = o.get("fulfillments", [])
+                for fulfillment in fulfillments:
+                    tracking_number = fulfillment.get("tracking_number")
+                    if tracking_number:
+                        order_shipment = OrderShipment(
+                            order_id=order.id,
+                            tracking_number=tracking_number,
+                            shopify_fulfillment_id=str(fulfillment.get("id", "")),
+                            tracking_company=fulfillment.get("tracking_company", ""),
+                            status="SHIPPED"
+                        )
+                        db.add(order_shipment)
+                        logger.info(f"Created shipment for order {shopify_id} with tracking {tracking_number}")
+                        break  # Only create one shipment per order for now
             for line in o.get("line_items") or []:
                 sku = (line.get("sku") or str(line.get("variant_id") or "") or "—")[:64]
                 title = (line.get("title") or "Item")[:255]
