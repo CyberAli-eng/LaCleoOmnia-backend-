@@ -50,7 +50,6 @@ def register_routes(app: FastAPI, settings) -> None:
     app.include_router(inventory.router, prefix="/api/inventory", tags=["inventory"])
     app.include_router(products.router, prefix="/api/products", tags=["products"])
     app.include_router(warehouses.router, prefix="/api/warehouses", tags=["warehouses"])
-    app.include_router(shipments.router, prefix="/api/shipments", tags=["shipments"])
     app.include_router(shipments_v2.router, prefix="/api", tags=["shipments-v2"])
     app.include_router(logistics.router, prefix="/api/logistics", tags=["logistics"])
     app.include_router(config.router, prefix="/api/config", tags=["config"])
