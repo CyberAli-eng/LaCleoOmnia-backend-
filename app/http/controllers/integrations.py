@@ -1099,14 +1099,16 @@ async def shopify_sync_orders(
             financial = (o.get("financial_status") or "").lower()
             payment_mode = PaymentMode.PREPAID if financial == "paid" else PaymentMode.COD
             
-            # Determine order status from Shopify fulfillment status
-            shopify_fulfillment_status = (o.get("fulfillment_status") or "").lower()
-            if shopify_fulfillment_status == "fulfilled":
+            # Simple fulfillment status mapping
+            fulfillment_status = (o.get("fulfillment_status") or "").lower()
+            if fulfillment_status == "fulfilled":
                 order_status = OrderStatus.SHIPPED
-            elif shopify_fulfillment_status == "partial":
-                order_status = OrderStatus.PACKED
             else:
                 order_status = OrderStatus.NEW
+
+            # Check if order already exists
+            if db.query(Order).filter(Order.channel_id == channel.id, Order.channel_account_id == account.id, Order.channel_order_id == shopify_id).first():
+                continue
 
             order = Order(
                 channel_id=channel.id,
@@ -1118,40 +1120,13 @@ async def shopify_sync_orders(
                 order_total=Decimal(str(total)),
                 status=order_status,
             )
-            
-            # Check if order already exists
-            existing = db.query(Order).filter(
-                Order.channel_id == channel.id,
-                Order.channel_account_id == account.id,
-                Order.channel_order_id == shopify_id,
-            ).first()
-            
-            if existing:
-                # Update existing order with latest data
-                existing.status = order_status
-                existing.customer_name = customer_name[:255]
-                existing.customer_email = customer_email[:255] if customer_email else None
-                existing.payment_mode = payment_mode
-                existing.order_total = Decimal(str(total))
-                existing.updated_at = datetime.utcnow()
-                
-                updated += 1
-                logger.info(f"Updated existing order {shopify_id} with status {order_status}")
-                order_id = existing.id
-            else:
-                # Create new order
-                db.add(order)
-                db.flush()  # Get the ID without committing
-                inserted += 1
-                logger.info(f"Created new order {shopify_id} with status {order_status}")
-                order_id = order.id
             for line in o.get("line_items") or []:
                 sku = (line.get("sku") or str(line.get("variant_id") or "") or "—")[:64]
                 title = (line.get("title") or "Item")[:255]
                 qty = int(line.get("quantity", 0) or 0)
                 price = float(line.get("price", 0) or 0)
                 db.add(OrderItem(
-                    order_id=order_id,
+                    order_id=order.id,
                     sku=sku,
                     title=title,
                     qty=qty,
