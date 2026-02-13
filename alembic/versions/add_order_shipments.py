@@ -19,7 +19,7 @@ depends_on = None
 def upgrade() -> None:
     """Create order_shipments table."""
     
-    # Create order_shipments table
+    # Create order_shipments table (indexes are created by the model)
     op.create_table('order_shipments',
         sa.Column('id', postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column('order_id', postgresql.UUID(as_uuid=True), sa.ForeignKey('orders.id'), nullable=False),
@@ -44,27 +44,6 @@ def upgrade() -> None:
     op.execute("COMMENT ON COLUMN order_shipments.fulfillment_status IS 'Fulfillment status from Shopify'")
     op.execute("COMMENT ON COLUMN order_shipments.delivery_status IS 'Current delivery status'")
     op.execute("COMMENT ON COLUMN order_shipments.selloship_status IS 'Status from Selloship tracking'")
-    
-    # Create indexes separately to handle potential duplicates
-    try:
-        op.create_index('idx_order_shipments_order_id', 'order_shipments', ['order_id'])
-    except Exception:
-        pass  # Index already exists
-    
-    try:
-        op.create_index('idx_order_shipments_shopify_id', 'order_shipments', ['shopify_fulfillment_id'])
-    except Exception:
-        pass  # Index already exists
-    
-    try:
-        op.create_index('idx_order_shipments_tracking', 'order_shipments', ['tracking_number'])
-    except Exception:
-        pass  # Index already exists
-    
-    try:
-        op.create_index('idx_order_shipments_selloship_status', 'order_shipments', ['selloship_status'])
-    except Exception:
-        pass  # Index already exists
     op.execute("COMMENT ON COLUMN order_shipments.last_synced IS 'Last time this shipment was synced with Shopify'")
 
 
