@@ -17,26 +17,38 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # Create selloship_mappings table without foreign key
-    op.create_table(
-        'selloship_mappings',
-        sa.Column('id', sa.String(), nullable=False),
-        sa.Column('order_id', sa.String(), nullable=False),
-        sa.Column('channel_order_id', sa.String(), nullable=False),
-        sa.Column('selloship_order_id', sa.String(), nullable=True),
-        sa.Column('awb', sa.String(), nullable=True),
-        sa.Column('last_checked', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
-        sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
-        sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
-        sa.PrimaryKeyConstraint('id'),
-    )
+    conn = op.get_bind()
+    inspector = sa.inspect(conn)
+    tables = set(inspector.get_table_names())
     
-    # Create indexes for performance
-    op.create_index('ix_selloship_mappings_order_id', 'selloship_mappings', ['order_id'])
-    op.create_index('ix_selloship_mappings_channel_order_id', 'selloship_mappings', ['channel_order_id'])
-    op.create_index('ix_selloship_mappings_selloship_order_id', 'selloship_mappings', ['selloship_order_id'])
-    op.create_index('ix_selloship_mappings_awb', 'selloship_mappings', ['awb'])
-    op.create_index('ix_selloship_mappings_last_checked', 'selloship_mappings', ['last_checked'])
+    # Create selloship_mappings table if it doesn't exist
+    if "selloship_mappings" not in tables:
+        # Create selloship_mappings table without foreign key
+        op.create_table(
+            'selloship_mappings',
+            sa.Column('id', sa.String(), nullable=False),
+            sa.Column('order_id', sa.String(), nullable=False),
+            sa.Column('channel_order_id', sa.String(), nullable=False),
+            sa.Column('selloship_order_id', sa.String(), nullable=True),
+            sa.Column('awb', sa.String(), nullable=True),
+            sa.Column('last_checked', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
+            sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
+            sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
+            sa.PrimaryKeyConstraint('id'),
+        )
+        
+        # Create indexes for performance
+        existing_indexes = {idx["name"] for idx in inspector.get_indexes("selloship_mappings")}
+        if "ix_selloship_mappings_order_id" not in existing_indexes:
+            op.create_index('ix_selloship_mappings_order_id', 'selloship_mappings', ['order_id'])
+        if "ix_selloship_mappings_channel_order_id" not in existing_indexes:
+            op.create_index('ix_selloship_mappings_channel_order_id', 'selloship_mappings', ['channel_order_id'])
+        if "ix_selloship_mappings_selloship_order_id" not in existing_indexes:
+            op.create_index('ix_selloship_mappings_selloship_order_id', 'selloship_mappings', ['selloship_order_id'])
+        if "ix_selloship_mappings_awb" not in existing_indexes:
+            op.create_index('ix_selloship_mappings_awb', 'selloship_mappings', ['awb'])
+        if "ix_selloship_mappings_last_checked" not in existing_indexes:
+            op.create_index('ix_selloship_mappings_last_checked', 'selloship_mappings', ['last_checked'])
 
 
 def downgrade() -> None:
