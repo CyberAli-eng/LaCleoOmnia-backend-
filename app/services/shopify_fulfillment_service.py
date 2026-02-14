@@ -19,7 +19,7 @@ from app.models import (
     OrderStatus,
     FulfillmentStatus
 )
-from app.services.shopify_service import ShopifyService
+from app.services.shopify import ShopifyService
 
 logger = logging.getLogger(__name__)
 
