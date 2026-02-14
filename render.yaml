@@ -1,0 +1,12 @@
+services:
+  # Python API Service
+  - type: web
+    name: LaCleoOmnia-backend
+    runtime: python
+    plan: free
+    buildCommand: "python3 safe_migrate.py"
+    startCommand: "python3 -m uvicorn main:app --host 0.0.0.0 --port $PORT"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.9
+      - fromGroup: LaCleoOmnia-secrets
