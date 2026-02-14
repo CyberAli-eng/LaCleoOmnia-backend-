@@ -60,6 +60,18 @@ def main():
         user_id_exists = result.scalar()
         print(f"user_id column exists: {user_id_exists}")
         
+        # Check if customer_id column exists in orders
+        result = connection.execute(text("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.columns 
+                WHERE table_schema = 'public' 
+                AND table_name = 'orders' 
+                AND column_name = 'customer_id'
+            );
+        """))
+        customer_id_exists = result.scalar()
+        print(f"customer_id column exists: {customer_id_exists}")
+        
         # If we have no current revision, stamp to latest head
         if not current_rev:
             print("No current revision, stamping to latest head...")
