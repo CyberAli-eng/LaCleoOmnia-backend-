@@ -24,22 +24,35 @@ def upgrade() -> None:
     
     # Create enum types if they don't exist
     if conn.dialect.name == "postgresql":
-        try:
-            conn.execute(sa.text("CREATE TYPE risktag AS ENUM ('SAFE', 'MEDIUM', 'HIGH')"))
-        except Exception:
-            pass  # Enum already exists
-        try:
-            conn.execute(sa.text("CREATE TYPE paymenttype AS ENUM ('PREPAID', 'COD')"))
-        except Exception:
-            pass  # Enum already exists
-        try:
-            conn.execute(sa.text("CREATE TYPE fulfilmentstatus AS ENUM ('DELIVERED', 'RTO', 'CANCELLED', 'IN_TRANSIT')"))
-        except Exception:
-            pass  # Enum already exists
-        try:
-            conn.execute(sa.text("CREATE TYPE profitstatus AS ENUM ('PROFIT', 'LOSS')"))
-        except Exception:
-            pass  # Enum already exists
+        # Use PostgreSQL's DO block to create enums safely
+        conn.execute(sa.text("""
+            DO $$ BEGIN
+                CREATE TYPE risktag AS ENUM ('SAFE', 'MEDIUM', 'HIGH');
+            EXCEPTION
+                WHEN duplicate_object THEN null;
+            END $$;
+        """))
+        conn.execute(sa.text("""
+            DO $$ BEGIN
+                CREATE TYPE paymenttype AS ENUM ('PREPAID', 'COD');
+            EXCEPTION
+                WHEN duplicate_object THEN null;
+            END $$;
+        """))
+        conn.execute(sa.text("""
+            DO $$ BEGIN
+                CREATE TYPE fulfilmentstatus AS ENUM ('DELIVERED', 'RTO', 'CANCELLED', 'IN_TRANSIT');
+            EXCEPTION
+                WHEN duplicate_object THEN null;
+            END $$;
+        """))
+        conn.execute(sa.text("""
+            DO $$ BEGIN
+                CREATE TYPE profitstatus AS ENUM ('PROFIT', 'LOSS');
+            EXCEPTION
+                WHEN duplicate_object THEN null;
+            END $$;
+        """))
     
     # Create customer_risk table if it doesn't exist
     if "customer_risk" not in tables:
@@ -82,18 +95,27 @@ def upgrade() -> None:
     if "order_expenses" not in tables:
         # Create remaining enums if needed
         if conn.dialect.name == "postgresql":
-            try:
-                conn.execute(sa.text("CREATE TYPE expensetype AS ENUM ('FIXED', 'ADS', 'FWD_SHIP', 'REV_SHIP', 'GATEWAY', 'COD_FEE', 'OVERHEAD')"))
-            except Exception:
-                pass  # Enum already exists
-            try:
-                conn.execute(sa.text("CREATE TYPE expensesource AS ENUM ('MANUAL', 'API', 'SYSTEM')"))
-            except Exception:
-                pass  # Enum already exists
-            try:
-                conn.execute(sa.text("CREATE TYPE settlementstatus AS ENUM ('PENDING', 'SETTLED', 'OVERDUE')"))
-            except Exception:
-                pass  # Enum already exists
+            conn.execute(sa.text("""
+                DO $$ BEGIN
+                    CREATE TYPE expensetype AS ENUM ('FIXED', 'ADS', 'FWD_SHIP', 'REV_SHIP', 'GATEWAY', 'COD_FEE', 'OVERHEAD');
+                EXCEPTION
+                    WHEN duplicate_object THEN null;
+                END $$;
+            """))
+            conn.execute(sa.text("""
+                DO $$ BEGIN
+                    CREATE TYPE expensesource AS ENUM ('MANUAL', 'API', 'SYSTEM');
+                EXCEPTION
+                    WHEN duplicate_object THEN null;
+                END $$;
+            """))
+            conn.execute(sa.text("""
+                DO $$ BEGIN
+                    CREATE TYPE settlementstatus AS ENUM ('PENDING', 'SETTLED', 'OVERDUE');
+                EXCEPTION
+                    WHEN duplicate_object THEN null;
+                END $$;
+            """))
         
         op.create_table('order_expenses',
         sa.Column('id', sa.String(), nullable=False),
