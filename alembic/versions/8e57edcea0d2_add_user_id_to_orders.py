@@ -17,8 +17,19 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # Add user_id column to orders table
-    op.add_column('orders', sa.Column('user_id', sa.String(), nullable=True))
+    """Add user_id column to orders table if it doesn't exist."""
+    
+    conn = op.get_bind()
+    inspector = sa.inspect(conn)
+    
+    # Check if user_id column already exists in orders table
+    columns = {col['name'] for col in inspector.get_columns('orders')}
+    
+    if 'user_id' not in columns:
+        op.add_column('orders', sa.Column('user_id', sa.String(), nullable=True))
+        print("Added user_id column to orders table")
+    else:
+        print("user_id column already exists in orders table")
 
 
 def downgrade() -> None:
