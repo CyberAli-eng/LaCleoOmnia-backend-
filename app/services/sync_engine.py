@@ -18,11 +18,8 @@ from app.models import (
 from app.services.shopify import ShopifyService
 from app.services.shopify_service import get_inventory as shopify_get_inventory
 from app.services.shopify_inventory_persist import persist_shopify_inventory
-from app.services.order_import import (
+from app.services.shopify_service import (
     import_shopify_orders,
-    import_amazon_orders,
-    import_flipkart_orders,
-    import_myntra_orders,
 )
 
 logger = logging.getLogger(__name__)
@@ -51,11 +48,14 @@ class SyncEngine:
             if channel_name == "SHOPIFY":
                 result = await import_shopify_orders(self.db, account)
             elif channel_name == "AMAZON":
-                result = await import_amazon_orders(self.db, account)
+                # TODO: Implement Amazon order import
+                result = {"imported": 0, "errors": 0, "message": "Amazon import not implemented yet"}
             elif channel_name == "FLIPKART":
-                result = await import_flipkart_orders(self.db, account)
+                # TODO: Implement Flipkart order import
+                result = {"imported": 0, "errors": 0, "message": "Flipkart import not implemented yet"}
             elif channel_name == "MYNTRA":
-                result = await import_myntra_orders(self.db, account)
+                # TODO: Implement Myntra order import
+                result = {"imported": 0, "errors": 0, "message": "Myntra import not implemented yet"}
             else:
                 raise ValueError(f"Unsupported channel: {channel_name}")
 
