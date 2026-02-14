@@ -28,7 +28,7 @@ from app.models import (
 from app.auth import get_current_user
 from app.services.finance_engine import compute_order_finance, get_finance_overview
 from app.services.expense_config import add_manual_expense, get_expense_summary
-from app.services.settlement_engine import settlement_engine, create_manual_settlement, run_settlement_jobs
+from app.services.settlement_engine_v2 import settlement_engine, create_manual_settlement, run_settlement_jobs
 from app.services.risk_engine import risk_engine, run_risk_assessment
 
 router = APIRouter()
