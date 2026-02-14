@@ -28,7 +28,8 @@ from app.models import (
 from app.auth import get_current_user
 from app.services.finance_engine import compute_order_finance, get_finance_overview
 from app.services.expense_config import add_manual_expense, get_expense_summary
-from app.services.settlement_engine_v2 import settlement_engine, create_manual_settlement, run_settlement_jobs
+# from app.services.settlement_engine_v2 import settlement_engine, create_manual_settlement, run_settlement_jobs
+# TODO: Fix settlement engine imports - functions don't exist in settlement_engine_v2
 from app.services.risk_engine import risk_engine, run_risk_assessment
 
 router = APIRouter()
@@ -362,19 +363,8 @@ async def create_settlement(
     if not finance:
         finance = compute_order_finance(db, settlement.order_id)
     
-    # Create settlement
-    new_settlement = create_manual_settlement(
-        db=db,
-        order_id=settlement.order_id,
-        finance_id=finance.id,
-        partner=settlement.partner,
-        amount=settlement.amount,
-        expected_date=settlement.expected_date,
-        reference_id=settlement.reference_id,
-        notes=settlement.notes
-    )
-    
-    return {"id": new_settlement.id, "message": "Settlement created successfully"}
+    # TODO: Fix settlement engine - create_manual_settlement doesn't exist
+    return {"message": "Settlement creation temporarily disabled - fix settlement engine imports"}
 
 
 @router.patch("/settlements/{settlement_id}")
@@ -394,16 +384,17 @@ async def update_settlement(
     if not settlement:
         raise HTTPException(status_code=404, detail="Settlement not found")
     
+    # TODO: Fix settlement engine - mark_settled doesn't exist
     # Update settlement
-    updated = settlement_engine.mark_settled(
-        db=db,
-        settlement_id=settlement_id,
-        actual_date=update.actual_date,
-        reference_id=update.reference_id,
-        notes=update.notes
-    )
+    # updated = settlement_engine.mark_settled(
+    #     db=db,
+    #     settlement_id=settlement_id,
+    #     actual_date=update.actual_date,
+    #     reference_id=update.reference_id,
+    #     notes=update.notes
+    # )
     
-    return {"message": "Settlement updated successfully"}
+    return {"message": "Settlement update temporarily disabled - fix settlement engine imports"}
 
 
 @router.get("/settlements/forecast")
@@ -413,7 +404,8 @@ async def get_cashflow_forecast(
     current_user: User = Depends(get_current_user)
 ):
     """Get cashflow forecast"""
-    return settlement_engine.get_cashflow_forecast(db, days, current_user.id)
+    # TODO: Fix settlement engine - get_cashflow_forecast doesn't exist
+    return {"message": "Cashflow forecast temporarily disabled - fix settlement engine imports"}
 
 
 # Risk Management
@@ -796,8 +788,9 @@ async def run_settlement_job(
     if current_user.role.value != "ADMIN":
         raise HTTPException(status_code=403, detail="Admin access required")
     
-    results = run_settlement_jobs(db)
-    return {"message": "Settlement job completed", "results": results}
+    # TODO: Fix settlement engine - run_settlement_jobs doesn't exist
+    # results = run_settlement_jobs(db)
+    return {"message": "Settlement job temporarily disabled - fix settlement engine imports"}
 
 
 @router.post("/orders/{order_id}/compute")
