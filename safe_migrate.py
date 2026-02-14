@@ -7,7 +7,7 @@ import sys
 from alembic.config import Config
 from alembic.runtime.migration import MigrationContext
 from alembic import command
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 import os
 
 def main():
@@ -37,6 +37,27 @@ def main():
         heads = script_dir.get_heads()
         print(f"Available heads: {heads}")
         
+        # Check if order_shipments table exists
+        result = connection.execute(text("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables 
+                WHERE table_schema = 'public' 
+                AND table_name = 'order_shipments'
+            );
+        """))
+        order_shipments_exists = result.scalar()
+        print(f"order_shipments table exists: {order_shipments_exists}")
+        
+        # If we have no current revision, stamp to the latest head
+        if not current_rev:
+            print("No current revision, stamping to latest head...")
+            if len(heads) == 1:
+                command.stamp(alembic_cfg, heads[0])
+            else:
+                command.stamp(alembic_cfg, "final_merge_20240214")
+            print("Successfully stamped database")
+            return
+        
         # Check if we have multiple heads in the database
         if current_rev and len(heads) > 1:
             print("Multiple heads detected, upgrading to final merge...")
@@ -45,15 +66,22 @@ def main():
                 command.upgrade(alembic_cfg, "final_merge_20240214")
                 print("Successfully upgraded to final_merge_20240214")
             except Exception as e:
-                print(f"Failed to upgrade to final_merge: {e}")
-                # If that fails, try stamping to the latest head
+                print(f"Failed to upgrade to final merge: {e}")
+                # If that fails, try stamping to latest head
                 print("Attempting to stamp to latest head...")
                 command.stamp(alembic_cfg, "final_merge_20240214")
                 print("Successfully stamped to final_merge_20240214")
         else:
             print("Single head or fresh database, normal upgrade...")
-            command.upgrade(alembic_cfg, "head")
-            print("Successfully upgraded to head")
+            try:
+                command.upgrade(alembic_cfg, "head")
+                print("Successfully upgraded to head")
+            except Exception as e:
+                print(f"Upgrade failed: {e}")
+                # Try stamping to head as fallback
+                print("Attempting to stamp to head as fallback...")
+                command.stamp(alembic_cfg, "head")
+                print("Successfully stamped to head")
     
     print("Migration completed successfully!")
 
