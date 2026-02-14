@@ -1,7 +1,7 @@
 """add_order_finance_engine
 
 Revision ID: e078ece594f2
-Revises: 9fef252debfb
+Revises: 983762c6e925
 Create Date: 2026-02-09 16:49:16.533616
 
 """
@@ -11,7 +11,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = 'e078ece594f2'
-down_revision = '9fef252debfb'
+down_revision = '983762c6e925'
 branch_labels = None
 depends_on = None
 

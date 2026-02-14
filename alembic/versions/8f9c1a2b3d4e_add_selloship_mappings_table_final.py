@@ -1,7 +1,7 @@
 """Add selloship_mappings table - final fix
 
 Revision ID: 8f9c1a2b3d4e
-Revises: 9fef252debfb
+Revises: 983762c6e925
 Create Date: 2024-02-11 12:00:00.000000
 
 """
@@ -11,7 +11,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = '8f9c1a2b3d4e'
-down_revision = '9fef252debfb'
+down_revision = '983762c6e925'
 branch_labels = None
 depends_on = None
 
