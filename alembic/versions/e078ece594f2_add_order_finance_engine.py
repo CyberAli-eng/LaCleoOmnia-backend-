@@ -56,35 +56,47 @@ def upgrade() -> None:
     
     # Create customer_risk table if it doesn't exist
     if "customer_risk" not in tables:
-        op.create_table('customer_risk',
-        sa.Column('customer_id', sa.String(), nullable=False),
-        sa.Column('total_orders', sa.Integer(), nullable=False),
-        sa.Column('rto_count', sa.Integer(), nullable=False),
-        sa.Column('loss_amount', sa.Numeric(precision=12, scale=2), nullable=False),
-        sa.Column('risk_tag', sa.Enum('SAFE', 'MEDIUM', 'HIGH', name='risktag'), nullable=False),
-        sa.Column('risk_score', sa.Numeric(precision=5, scale=2), nullable=False),
-        sa.Column('last_order_date', sa.Date(), nullable=True),
-        sa.Column('last_updated_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
-        sa.PrimaryKeyConstraint('customer_id')
-        )
+        # Use raw SQL to avoid enum creation issues
+        conn.execute(sa.text("""
+            CREATE TABLE IF NOT EXISTS customer_risk (
+                customer_id VARCHAR NOT NULL PRIMARY KEY,
+                total_orders INTEGER NOT NULL,
+                rto_count INTEGER NOT NULL,
+                loss_amount NUMERIC(12, 2) NOT NULL,
+                risk_tag VARCHAR NOT NULL,
+                risk_score NUMERIC(5, 2) NOT NULL,
+                last_order_date DATE,
+                last_updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+            )
+        """))
+        
+        # Create indexes
+        conn.execute(sa.text("""
+            CREATE INDEX IF NOT EXISTS ix_customer_risk_risk_tag ON customer_risk(risk_tag)
+        """))
+        conn.execute(sa.text("""
+            CREATE INDEX IF NOT EXISTS ix_customer_risk_last_order_date ON customer_risk(last_order_date)
+        """))
     
     # Create order_finance table if it doesn't exist
     if "order_finance" not in tables:
-        op.create_table('order_finance',
-        sa.Column('id', sa.String(), nullable=False),
-        sa.Column('order_id', sa.String(), nullable=False),
-        sa.Column('order_value', sa.Numeric(precision=12, scale=2), nullable=False),
-        sa.Column('revenue_realized', sa.Numeric(precision=12, scale=2), nullable=False),
-        sa.Column('payment_type', sa.Enum('PREPAID', 'COD', name='paymenttype'), nullable=False),
-        sa.Column('fulfilment_status', sa.Enum('DELIVERED', 'RTO', 'CANCELLED', 'IN_TRANSIT', name='fulfilmentstatus'), nullable=False),
-        sa.Column('total_expense', sa.Numeric(precision=12, scale=2), nullable=False),
-        sa.Column('net_profit', sa.Numeric(precision=12, scale=2), nullable=False),
-        sa.Column('profit_status', sa.Enum('PROFIT', 'LOSS', name='profitstatus'), nullable=False),
-        sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
-        sa.Column('updated_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
-        sa.ForeignKeyConstraint(['order_id'], ['orders.id'], ondelete='CASCADE'),
-        sa.PrimaryKeyConstraint('id')
-        )
+        # Use raw SQL to avoid enum creation issues
+        conn.execute(sa.text("""
+            CREATE TABLE IF NOT EXISTS order_finance (
+                id VARCHAR NOT NULL PRIMARY KEY,
+                order_id VARCHAR NOT NULL,
+                order_value NUMERIC(12, 2) NOT NULL,
+                revenue_realized NUMERIC(12, 2) NOT NULL,
+                payment_type VARCHAR NOT NULL,
+                fulfilment_status VARCHAR NOT NULL,
+                total_expense NUMERIC(12, 2) NOT NULL,
+                net_profit NUMERIC(12, 2) NOT NULL,
+                profit_status VARCHAR NOT NULL,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+                updated_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+                FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
+            )
+        """))
         
         # Create index only if it doesn't exist
         existing_indexes = {idx["name"] for idx in inspector.get_indexes("order_finance")}
@@ -93,46 +105,24 @@ def upgrade() -> None:
     
     # Create order_expenses table if it doesn't exist
     if "order_expenses" not in tables:
-        # Create remaining enums if needed
-        if conn.dialect.name == "postgresql":
-            conn.execute(sa.text("""
-                DO $$ BEGIN
-                    CREATE TYPE expensetype AS ENUM ('FIXED', 'ADS', 'FWD_SHIP', 'REV_SHIP', 'GATEWAY', 'COD_FEE', 'OVERHEAD');
-                EXCEPTION
-                    WHEN duplicate_object THEN null;
-                END $$;
-            """))
-            conn.execute(sa.text("""
-                DO $$ BEGIN
-                    CREATE TYPE expensesource AS ENUM ('MANUAL', 'API', 'SYSTEM');
-                EXCEPTION
-                    WHEN duplicate_object THEN null;
-                END $$;
-            """))
-            conn.execute(sa.text("""
-                DO $$ BEGIN
-                    CREATE TYPE settlementstatus AS ENUM ('PENDING', 'SETTLED', 'OVERDUE');
-                EXCEPTION
-                    WHEN duplicate_object THEN null;
-                END $$;
-            """))
-        
-        op.create_table('order_expenses',
-        sa.Column('id', sa.String(), nullable=False),
-        sa.Column('order_id', sa.String(), nullable=False),
-        sa.Column('order_finance_id', sa.String(), nullable=False),
-        sa.Column('type', sa.Enum('FIXED', 'ADS', 'FWD_SHIP', 'REV_SHIP', 'GATEWAY', 'COD_FEE', 'OVERHEAD', name='expensetype'), nullable=False),
-        sa.Column('source', sa.Enum('MANUAL', 'API', 'SYSTEM', name='expensesource'), nullable=False),
-        sa.Column('amount', sa.Numeric(precision=12, scale=2), nullable=False),
-        sa.Column('effective_date', sa.Date(), nullable=False),
-        sa.Column('editable', sa.Boolean(), nullable=False),
-        sa.Column('description', sa.String(), nullable=True),
-        sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
-        sa.Column('updated_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
-        sa.ForeignKeyConstraint(['order_finance_id'], ['order_finance.id'], ondelete='CASCADE'),
-        sa.ForeignKeyConstraint(['order_id'], ['orders.id'], ondelete='CASCADE'),
-        sa.PrimaryKeyConstraint('id')
-        )
+        # Use raw SQL to avoid enum creation issues
+        conn.execute(sa.text("""
+            CREATE TABLE IF NOT EXISTS order_expenses (
+                id VARCHAR NOT NULL PRIMARY KEY,
+                order_id VARCHAR NOT NULL,
+                order_finance_id VARCHAR NOT NULL,
+                type VARCHAR NOT NULL,
+                source VARCHAR NOT NULL,
+                amount NUMERIC(12, 2) NOT NULL,
+                effective_date DATE NOT NULL,
+                editable BOOLEAN NOT NULL,
+                description VARCHAR,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+                updated_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+                FOREIGN KEY (order_finance_id) REFERENCES order_finance(id) ON DELETE CASCADE,
+                FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
+            )
+        """))
         
         # Create indexes only if they don't exist
         existing_expenses_indexes = {idx["name"] for idx in inspector.get_indexes("order_expenses")}
@@ -143,23 +133,25 @@ def upgrade() -> None:
     
     # Create order_settlements table if it doesn't exist
     if "order_settlements" not in tables:
-        op.create_table('order_settlements',
-        sa.Column('id', sa.String(), nullable=False),
-        sa.Column('order_id', sa.String(), nullable=False),
-        sa.Column('order_finance_id', sa.String(), nullable=False),
-        sa.Column('partner', sa.String(), nullable=False),
-        sa.Column('expected_date', sa.Date(), nullable=False),
-        sa.Column('actual_date', sa.Date(), nullable=True),
-        sa.Column('amount', sa.Numeric(precision=12, scale=2), nullable=False),
-        sa.Column('status', sa.Enum('PENDING', 'SETTLED', 'OVERDUE', name='settlementstatus'), nullable=False),
-        sa.Column('reference_id', sa.String(), nullable=True),
-        sa.Column('notes', sa.String(), nullable=True),
-        sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
-        sa.Column('updated_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
-        sa.ForeignKeyConstraint(['order_finance_id'], ['order_finance.id'], ondelete='CASCADE'),
-        sa.ForeignKeyConstraint(['order_id'], ['orders.id'], ondelete='CASCADE'),
-        sa.PrimaryKeyConstraint('id')
-        )
+        # Use raw SQL to avoid enum creation issues
+        conn.execute(sa.text("""
+            CREATE TABLE IF NOT EXISTS order_settlements (
+                id VARCHAR NOT NULL PRIMARY KEY,
+                order_id VARCHAR NOT NULL,
+                order_finance_id VARCHAR NOT NULL,
+                partner VARCHAR NOT NULL,
+                expected_date DATE NOT NULL,
+                actual_date DATE,
+                amount NUMERIC(12, 2) NOT NULL,
+                status VARCHAR NOT NULL,
+                reference_id VARCHAR,
+                notes VARCHAR,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+                updated_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+                FOREIGN KEY (order_finance_id) REFERENCES order_finance(id) ON DELETE CASCADE,
+                FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
+            )
+        """))
         
         # Create indexes only if they don't exist
         existing_settlements_indexes = {idx["name"] for idx in inspector.get_indexes("order_settlements")}
